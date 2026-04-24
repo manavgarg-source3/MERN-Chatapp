@@ -6,7 +6,7 @@ import { ChatContainer } from '../components/ChatContainer';
 
 
 export const HomePage = () => {
-  const { selectedUser } = useChatStore();
+  const { selectedChat } = useChatStore();
 
   return (
     <div className="h-screen bg-base-200">
@@ -15,11 +15,10 @@ export const HomePage = () => {
           <div className="flex h-full rounded-lg overflow-hidden">
             <Sidebar />
 
-            {!selectedUser ? <NoChatSelected /> : <ChatContainer />}
+            {!selectedChat ? <NoChatSelected /> : <ChatContainer />}
           </div>
         </div>
       </div>
     </div>
   );
 };
-

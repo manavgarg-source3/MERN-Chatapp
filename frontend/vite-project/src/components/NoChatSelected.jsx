@@ -19,11 +19,9 @@ export const NoChatSelected = () => {
         {/* Welcome Text */}
         <h2 className="text-2xl font-bold">Welcome to GargX</h2>
         <p className="text-base-content/60">
-          Select a conversation from the sidebar to start chatting
+          Select a friend or group from the sidebar, or add friends first to create a new group
         </p>
       </div>
     </div>
   );
 };
-
-

@@ -1,87 +1,173 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Users } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { SidebarSkeleton } from "./SidebarSkeleton";
-import { Users } from "lucide-react";
-import { ChatContainer } from "./ChatContainer";
+
+const getInitials = (value = "") =>
+  value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+const GroupAvatar = ({ group }) => (
+  <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+    {group.profilePic ? (
+      <img
+        src={group.profilePic}
+        alt={group.name}
+        className="size-12 rounded-full object-cover"
+      />
+    ) : (
+      getInitials(group.name) || "G"
+    )}
+  </div>
+);
 
 export const Sidebar = () => {
-    const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
-  
-    const { onlineUsers } = useAuthStore();
-    const [showOnlineOnly, setShowOnlineOnly] = useState(false);
-  
-    useEffect(() => {
-      getUsers();
-    }, [getUsers]);
-  
-    const filteredUsers = showOnlineOnly
-      ? users.filter((user) => onlineUsers.includes(user._id))
-      : users;
-  
-    if (isUsersLoading) return <SidebarSkeleton />;
-  
-    return (
-      <aside className="h-full w-20 lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200">
-        <div className="border-b border-base-300 w-full p-5">
-          <div className="flex items-center gap-2">
-            <Users className="size-6" />
-            <span className="font-medium hidden lg:block">Contacts</span>
-          </div>
-          {/* TODO: Online filter toggle */}
-          <div className="mt-3 hidden lg:flex items-center gap-2">
-            <label className="cursor-pointer flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showOnlineOnly}
-                onChange={(e) => setShowOnlineOnly(e.target.checked)}
-                className="checkbox checkbox-sm"
-              />
-              <span className="text-sm">Show online only</span>
-            </label>
-            <span className="text-xs text-zinc-500">({onlineUsers.length - 1} online)</span>
-          </div>
-        </div>
-  
-        <div className="overflow-y-auto w-full py-3">
-          {filteredUsers.map((user) => (
-            <button
-              key={user._id}
-              onClick={() => setSelectedUser(user)}
-              className={`
-                w-full p-3 flex items-center gap-3
-                hover:bg-base-300 transition-colors
-                ${selectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
-              `}
-            >
-              <div className="relative mx-auto lg:mx-0">
-                <img
-                  src={user.profilePic || "/avatar.png"}
-                  alt={user.name}
-                  className="size-12 object-cover rounded-full"
+  const {
+    getConversations,
+    directUsers,
+    groups,
+    selectedChat,
+    setSelectedChat,
+    isUsersLoading,
+    isGroupsLoading,
+  } = useChatStore();
+  const { onlineUsers, socket } = useAuthStore();
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+
+  useEffect(() => {
+    getConversations();
+  }, [getConversations]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleFriendsUpdated = () => {
+      getConversations();
+    };
+
+    const handleGroupsUpdated = () => {
+      getConversations();
+    };
+
+    socket.on("friendsUpdated", handleFriendsUpdated);
+    socket.on("groupsUpdated", handleGroupsUpdated);
+
+    return () => {
+      socket.off("friendsUpdated", handleFriendsUpdated);
+      socket.off("groupsUpdated", handleGroupsUpdated);
+    };
+  }, [socket, getConversations]);
+
+  const filteredDirectUsers = useMemo(
+    () =>
+      showOnlineOnly ? directUsers.filter((user) => onlineUsers.includes(user._id)) : directUsers,
+    [showOnlineOnly, directUsers, onlineUsers]
+  );
+
+  if (isUsersLoading || isGroupsLoading) return <SidebarSkeleton />;
+
+  return (
+    <aside className="h-full w-20 border-r border-base-300 transition-all duration-200 lg:w-80">
+        <div className="flex h-full flex-col">
+          <div className="w-full border-b border-base-300 p-5">
+            <div className="flex items-center gap-2">
+              <Users className="size-6" />
+              <span className="hidden font-medium lg:block">Chats & Groups</span>
+            </div>
+
+            <div className="mt-3 hidden items-center justify-between gap-2 lg:flex">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={showOnlineOnly}
+                  onChange={(e) => setShowOnlineOnly(e.target.checked)}
+                  className="checkbox checkbox-sm"
                 />
-                {onlineUsers.includes(user._id) && (
-                  <span
-                    className="absolute bottom-0 right-0 size-3 bg-green-500 
-                    rounded-full ring-2 ring-zinc-900"
+                <span className="text-sm">Show online friends only</span>
+              </label>
+              <span className="text-xs text-zinc-500">
+                {filteredDirectUsers.length + groups.length} conversations
+              </span>
+            </div>
+          </div>
+
+          <div className="overflow-y-auto px-2 py-3">
+            <div className="mb-2 hidden px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45 lg:block">
+              Friends
+            </div>
+
+            {filteredDirectUsers.map((user) => (
+              <button
+                key={user._id}
+                onClick={() => setSelectedChat({ ...user, type: "direct" })}
+                className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
+                  selectedChat?._id === user._id && selectedChat?.type === "direct"
+                    ? "bg-base-300 ring-1 ring-base-300"
+                    : ""
+                }`}
+              >
+                <div className="relative mx-auto lg:mx-0">
+                  <img
+                    src={user.profilePic || "/avatar.png"}
+                    alt={user.fullName}
+                    className="size-12 rounded-full object-cover"
                   />
-                )}
-              </div>
-  
-              {/* User info - only visible on larger screens */}
-              <div className="hidden lg:block text-left min-w-0">
-                <div className="font-medium truncate">{user.fullName}</div>
-                <div className="text-sm text-zinc-400">
-                  {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                  {onlineUsers.includes(user._id) && (
+                    <span className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 ring-2 ring-base-100" />
+                  )}
                 </div>
+
+                <div className="hidden min-w-0 lg:block">
+                  <div className="truncate font-medium">{user.fullName}</div>
+                  <div className="text-sm text-zinc-400">
+                    {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                  </div>
+                </div>
+              </button>
+            ))}
+
+            <div className="mb-2 mt-5 hidden px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45 lg:block">
+              Groups
+            </div>
+
+            {groups.map((group) => (
+              <button
+                key={group._id}
+                onClick={() => setSelectedChat(group)}
+                className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
+                  selectedChat?._id === group._id && selectedChat?.type === "group"
+                    ? "bg-base-300 ring-1 ring-base-300"
+                    : ""
+                }`}
+              >
+                <div className="mx-auto lg:mx-0">
+                  <GroupAvatar group={group} />
+                </div>
+
+                <div className="hidden min-w-0 lg:block">
+                  <div className="truncate font-medium">{group.name}</div>
+                  <div className="text-sm text-zinc-400">
+                    {group.memberCount} member{group.memberCount === 1 ? "" : "s"}
+                  </div>
+                </div>
+              </button>
+            ))}
+
+            {filteredDirectUsers.length === 0 && groups.length === 0 && (
+              <div className="px-5 py-8 text-center text-zinc-500">
+                <p className="font-medium">No conversations yet</p>
+                <p className="mt-1 text-sm">
+                  Accept some friends first, then start a direct chat or create a group.
+                </p>
               </div>
-            </button>
-          ))}
-  
-          {filteredUsers.length === 0 && (
-            <div className="text-center text-zinc-500 py-4">No online users</div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
-    );
-  };
+  );
+};
