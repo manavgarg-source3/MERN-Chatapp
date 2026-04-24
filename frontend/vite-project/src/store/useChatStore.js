@@ -5,10 +5,16 @@ import { useAuthStore } from "./useAuthStore";
 
 const getChatTitle = (chat) => chat?.fullName || chat?.name || "Conversation";
 
+const withUnreadCount = (conversation) => ({
+  ...conversation,
+  unreadCount: Number(conversation?.unreadCount || 0),
+});
+
 const upsertGroup = (groups, group) => {
-  const nextGroups = groups.some((item) => item._id === group._id)
-    ? groups.map((item) => (item._id === group._id ? group : item))
-    : [...groups, group];
+  const normalizedGroup = withUnreadCount(group);
+  const nextGroups = groups.some((item) => item._id === normalizedGroup._id)
+    ? groups.map((item) => (item._id === normalizedGroup._id ? normalizedGroup : item))
+    : [...groups, normalizedGroup];
 
   return nextGroups.sort((firstGroup, secondGroup) =>
     getChatTitle(firstGroup).localeCompare(getChatTitle(secondGroup))
@@ -19,6 +25,13 @@ const removeGroupTypingUser = (typingState, groupId, userId) => ({
   ...typingState,
   [groupId]: (typingState[groupId] || []).filter((user) => user._id !== userId),
 });
+
+const updateConversationUnreadCount = (conversations, chatId, unreadCount) =>
+  conversations.map((conversation) =>
+    String(conversation._id) === String(chatId)
+      ? { ...conversation, unreadCount: Math.max(0, Number(unreadCount || 0)) }
+      : conversation
+  );
 
 export const useChatStore = create((set, get) => ({
   messages: [],
@@ -36,11 +49,26 @@ export const useChatStore = create((set, get) => ({
   isManagingGroupMembers: false,
   activeDeletingMessageId: null,
 
+  applyConversationUnreadCountUpdate: ({ chatType, chatId, unreadCount }) => {
+    if (!chatId) return;
+
+    set({
+      directUsers:
+        chatType === "direct"
+          ? updateConversationUnreadCount(get().directUsers, chatId, unreadCount)
+          : get().directUsers,
+      groups:
+        chatType === "group"
+          ? updateConversationUnreadCount(get().groups, chatId, unreadCount)
+          : get().groups,
+    });
+  },
+
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/messages/users");
-      set({ directUsers: res.data || [] });
+      set({ directUsers: (res.data || []).map(withUnreadCount) });
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not load friends");
     } finally {
@@ -52,7 +80,7 @@ export const useChatStore = create((set, get) => ({
     set({ isGroupsLoading: true });
     try {
       const res = await axiosInstance.get("/messages/groups");
-      const groups = res.data || [];
+      const groups = (res.data || []).map(withUnreadCount);
       const currentSelectedChat = get().selectedChat;
       const refreshedSelectedGroup =
         currentSelectedChat?.type === "group"
@@ -196,6 +224,7 @@ export const useChatStore = create((set, get) => ({
               ? { ...message, readAt: res.data.readAt }
               : message
           ),
+          directUsers: updateConversationUnreadCount(get().directUsers, userId, 0),
         });
       }
     } catch (error) {
@@ -232,6 +261,7 @@ export const useChatStore = create((set, get) => ({
                 }
               : message
           ),
+          groups: updateConversationUnreadCount(get().groups, groupId, 0),
         });
       }
     } catch (error) {
@@ -439,7 +469,6 @@ export const useChatStore = create((set, get) => ({
     socket.off("groupTyping");
     socket.off("groupMessagesRead");
     socket.off("groupsUpdated");
-
     socket.on("newMessage", (newMessage) => {
       if (selectedChat.type !== "direct") return;
 
@@ -625,6 +654,14 @@ export const useChatStore = create((set, get) => ({
     get().sendTypingStatus(false);
     set((state) => ({
       selectedChat,
+      directUsers:
+        selectedChat?.type === "direct"
+          ? updateConversationUnreadCount(state.directUsers, selectedChat._id, 0)
+          : state.directUsers,
+      groups:
+        selectedChat?.type === "group"
+          ? updateConversationUnreadCount(state.groups, selectedChat._id, 0)
+          : state.groups,
       typingUsers: selectedChat ? state.typingUsers : {},
       groupTypingUsers:
         selectedChat?.type === "group"

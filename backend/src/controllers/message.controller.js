@@ -179,6 +179,105 @@ const serializeGroup = (group, currentUserId) => {
   };
 };
 
+const getDirectUnreadCountMap = async (userId) => {
+  const unreadCounts = await Message.aggregate([
+    {
+      $match: {
+        receiverId: userId,
+        groupId: null,
+        readAt: null,
+      },
+    },
+    {
+      $group: {
+        _id: "$senderId",
+        unreadCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return unreadCounts.reduce((accumulator, entry) => {
+    accumulator[entry._id.toString()] = entry.unreadCount;
+    return accumulator;
+  }, {});
+};
+
+const getGroupUnreadCountMap = async (userId) => {
+  const unreadCounts = await Message.aggregate([
+    {
+      $match: {
+        groupId: { $ne: null },
+        senderId: { $ne: userId },
+        "readBy.userId": { $ne: userId },
+      },
+    },
+    {
+      $group: {
+        _id: "$groupId",
+        unreadCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  return unreadCounts.reduce((accumulator, entry) => {
+    accumulator[entry._id.toString()] = entry.unreadCount;
+    return accumulator;
+  }, {});
+};
+
+const getDirectUnreadCount = async ({ receiverId, senderId }) =>
+  Message.countDocuments({
+    receiverId,
+    senderId,
+    groupId: null,
+    readAt: null,
+  });
+
+const getGroupUnreadCount = async ({ userId, groupId }) =>
+  Message.countDocuments({
+    groupId,
+    senderId: { $ne: userId },
+    "readBy.userId": { $ne: userId },
+  });
+
+const emitConversationUnreadCountUpdate = ({ userId, chatType, chatId, unreadCount }) => {
+  io.to(userId.toString()).emit("conversationUnreadCountUpdated", {
+    chatType,
+    chatId: chatId.toString(),
+    unreadCount,
+  });
+};
+
+const syncDirectUnreadCountForUser = async ({ receiverId, senderId }) => {
+  const unreadCount = await getDirectUnreadCount({ receiverId, senderId });
+  emitConversationUnreadCountUpdate({
+    userId: receiverId,
+    chatType: "direct",
+    chatId: senderId,
+    unreadCount,
+  });
+};
+
+const syncGroupUnreadCountForUser = async ({ userId, groupId }) => {
+  const unreadCount = await getGroupUnreadCount({ userId, groupId });
+  emitConversationUnreadCountUpdate({
+    userId,
+    chatType: "group",
+    chatId: groupId,
+    unreadCount,
+  });
+};
+
+const syncGroupUnreadCountsForUsers = async ({ userIds = [], groupId, excludeUserIds = [] }) => {
+  const excludedUsers = new Set(excludeUserIds.map(String));
+
+  await Promise.all(
+    [...new Set(userIds.map(String))]
+      .filter((userId) => !excludedUsers.has(userId))
+      .map((userId) => syncGroupUnreadCountForUser({ userId, groupId }))
+  );
+};
+
 const populateGroupById = (groupId) =>
   Group.findById(groupId).populate("adminId", USER_PREVIEW_FIELDS).populate("members", USER_PREVIEW_FIELDS);
 
@@ -231,6 +330,8 @@ const markConversationMessagesAsRead = async ({ readerId, senderId }) => {
     readerId,
     readAt,
   });
+
+  await syncDirectUnreadCountForUser({ receiverId: readerId, senderId });
 
   return { messageIds, readAt };
 };
@@ -297,6 +398,8 @@ const markGroupMessagesAsRead = async ({ groupId, user }) => {
     readAt,
   });
 
+  await syncGroupUnreadCountForUser({ userId: user._id, groupId });
+
   return { messageIds, readAt };
 };
 
@@ -330,6 +433,7 @@ const getVerifiedAdminGroup = async ({ groupId, userId }) => {
 
 export const getUsersForSidebar = async (req, res) => {
   try {
+    const unreadCountMap = await getDirectUnreadCountMap(req.user._id);
     const currentUser = await User.findById(req.user._id)
       .populate("friends", USER_PREVIEW_FIELDS)
       .lean();
@@ -339,6 +443,7 @@ export const getUsersForSidebar = async (req, res) => {
       .map((user) => ({
         ...user,
         type: "direct",
+        unreadCount: unreadCountMap[user._id.toString()] || 0,
       }));
 
     res.status(200).json(filteredUsers);
@@ -350,6 +455,7 @@ export const getUsersForSidebar = async (req, res) => {
 
 export const getGroups = async (req, res) => {
   try {
+    const unreadCountMap = await getGroupUnreadCountMap(req.user._id);
     const groups = await Group.find({ members: req.user._id })
       .populate("adminId", USER_PREVIEW_FIELDS)
       .populate("members", USER_PREVIEW_FIELDS)
@@ -357,7 +463,10 @@ export const getGroups = async (req, res) => {
 
     res.status(200).json(
       groups
-        .map((group) => serializeGroup(group, req.user._id))
+        .map((group) => ({
+          ...serializeGroup(group, req.user._id),
+          unreadCount: unreadCountMap[group._id.toString()] || 0,
+        }))
         .sort((firstGroup, secondGroup) => firstGroup.name.localeCompare(secondGroup.name))
     );
   } catch (error) {
@@ -710,6 +819,8 @@ export const sendDirectMessage = async (req, res) => {
         newMessage.readAt = readResult.readAt;
         newMessage.deliveredAt = readResult.readAt;
       }
+    } else {
+      await syncDirectUnreadCountForUser({ receiverId, senderId });
     }
 
     res.status(201).json(newMessage);
@@ -789,6 +900,11 @@ export const deleteDirectMessageForEveryone = async (req, res) => {
       deletedAt,
     });
 
+    await syncDirectUnreadCountForUser({
+      receiverId: message.receiverId,
+      senderId: currentUserId,
+    });
+
     res.status(200).json(updatedMessage);
   } catch (error) {
     console.log("Error in deleteDirectMessageForEveryone controller:", error.message);
@@ -844,6 +960,11 @@ export const deleteGroupMessageForEveryone = async (req, res) => {
       .populate("readBy.userId", USER_PREVIEW_FIELDS);
 
     io.to(getGroupRoomId(message.groupId.toString())).emit("groupMessageDeleted", updatedMessage);
+    await syncGroupUnreadCountsForUsers({
+      userIds: group.members,
+      groupId: message.groupId,
+      excludeUserIds: [],
+    });
 
     res.status(200).json(updatedMessage);
   } catch (error) {
@@ -896,6 +1017,11 @@ export const adminDeleteGroupMessage = async (req, res) => {
       .populate("readBy.userId", USER_PREVIEW_FIELDS);
 
     io.to(getGroupRoomId(message.groupId.toString())).emit("groupMessageDeleted", updatedMessage);
+    await syncGroupUnreadCountsForUsers({
+      userIds: group.members,
+      groupId: message.groupId,
+      excludeUserIds: [],
+    });
 
     res.status(200).json(updatedMessage);
   } catch (error) {
@@ -943,7 +1069,11 @@ export const sendGroupMessage = async (req, res) => {
       .except(req.user._id.toString())
       .emit("newGroupMessage", populatedMessage);
 
-    await emitGroupsUpdated(group.members.map((memberId) => memberId.toString()));
+    await syncGroupUnreadCountsForUsers({
+      userIds: group.members,
+      groupId,
+      excludeUserIds: [req.user._id],
+    });
 
     res.status(201).json(populatedMessage);
   } catch (error) {

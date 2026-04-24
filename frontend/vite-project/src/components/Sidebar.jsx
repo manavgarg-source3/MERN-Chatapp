@@ -26,6 +26,16 @@ const GroupAvatar = ({ group }) => (
   </div>
 );
 
+const UnreadBadge = ({ count }) => {
+  if (!count) return null;
+
+  return (
+    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold leading-none text-primary-content">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+};
+
 export const Sidebar = () => {
   const {
     getConversations,
@@ -33,6 +43,7 @@ export const Sidebar = () => {
     groups,
     selectedChat,
     setSelectedChat,
+    applyConversationUnreadCountUpdate,
     isUsersLoading,
     isGroupsLoading,
   } = useChatStore();
@@ -54,14 +65,20 @@ export const Sidebar = () => {
       getConversations();
     };
 
+    const handleUnreadCountUpdated = (payload) => {
+      applyConversationUnreadCountUpdate(payload);
+    };
+
     socket.on("friendsUpdated", handleFriendsUpdated);
     socket.on("groupsUpdated", handleGroupsUpdated);
+    socket.on("conversationUnreadCountUpdated", handleUnreadCountUpdated);
 
     return () => {
       socket.off("friendsUpdated", handleFriendsUpdated);
       socket.off("groupsUpdated", handleGroupsUpdated);
+      socket.off("conversationUnreadCountUpdated", handleUnreadCountUpdated);
     };
-  }, [socket, getConversations]);
+  }, [socket, getConversations, applyConversationUnreadCountUpdate]);
 
   const filteredDirectUsers = useMemo(
     () =>
@@ -120,12 +137,24 @@ export const Sidebar = () => {
                   {onlineUsers.includes(user._id) && (
                     <span className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 ring-2 ring-base-100" />
                   )}
+                  <div className="absolute -right-1 -top-1 lg:hidden">
+                    <UnreadBadge count={user.unreadCount} />
+                  </div>
                 </div>
 
-                <div className="hidden min-w-0 lg:block">
-                  <div className="truncate font-medium">{user.fullName}</div>
-                  <div className="text-sm text-zinc-400">
-                    {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                <div className="hidden min-w-0 flex-1 lg:block">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate font-medium">{user.fullName}</div>
+                    <UnreadBadge count={user.unreadCount} />
+                  </div>
+                  <div
+                    className={`text-sm ${user.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
+                  >
+                    {user.unreadCount
+                      ? `${user.unreadCount} new message${user.unreadCount === 1 ? "" : "s"}`
+                      : onlineUsers.includes(user._id)
+                        ? "Online"
+                        : "Offline"}
                   </div>
                 </div>
               </button>
@@ -145,14 +174,24 @@ export const Sidebar = () => {
                     : ""
                 }`}
               >
-                <div className="mx-auto lg:mx-0">
+                <div className="relative mx-auto lg:mx-0">
                   <GroupAvatar group={group} />
+                  <div className="absolute -right-1 -top-1 lg:hidden">
+                    <UnreadBadge count={group.unreadCount} />
+                  </div>
                 </div>
 
-                <div className="hidden min-w-0 lg:block">
-                  <div className="truncate font-medium">{group.name}</div>
-                  <div className="text-sm text-zinc-400">
-                    {group.memberCount} member{group.memberCount === 1 ? "" : "s"}
+                <div className="hidden min-w-0 flex-1 lg:block">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="truncate font-medium">{group.name}</div>
+                    <UnreadBadge count={group.unreadCount} />
+                  </div>
+                  <div
+                    className={`text-sm ${group.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
+                  >
+                    {group.unreadCount
+                      ? `${group.unreadCount} new message${group.unreadCount === 1 ? "" : "s"}`
+                      : `${group.memberCount} member${group.memberCount === 1 ? "" : "s"}`}
                   </div>
                 </div>
               </button>
