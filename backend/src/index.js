@@ -29,21 +29,19 @@ const resolveFrontendDistPath = () => {
 };
 
 const frontendDistPath = resolveFrontendDistPath();
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      callback(isOriginAllowed(origin) ? null : new Error("HTTP origin not allowed"), true);
-    },
-    credentials: true,
-    methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    allowedHeaders: "Content-Type, Authorization",
-  })
-);
+const corsOptions = {
+  origin: (origin, callback) => {
+    callback(isOriginAllowed(origin) ? null : new Error("HTTP origin not allowed"), true);
+  },
+  credentials: true,
+  methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  allowedHeaders: "Content-Type, Authorization",
+};
 
 app.use(express.json({ limit: "25mb" })); 
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
+app.use("/api", cors(corsOptions));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
