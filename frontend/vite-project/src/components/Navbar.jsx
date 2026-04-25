@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LogOut,
   MessageSquare,
@@ -15,6 +15,8 @@ import { FriendRequestsModal } from "./FriendRequestsModal";
 import { CreateGroupModal } from "./CreateGroupModal";
 
 export const Navbar = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { logout, authUser, socket } = useAuthStore();
   const { incomingRequests, getFriendOverview } = useFriendStore();
   const { directUsers } = useChatStore();
@@ -41,31 +43,49 @@ export const Navbar = () => {
     };
   }, [socket, authUser, getFriendOverview]);
 
+  useEffect(() => {
+    if (!authUser) return;
+
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get("friendRequests") === "1") {
+      setIsRequestsOpen(true);
+      searchParams.delete("friendRequests");
+      navigate(
+        {
+          pathname: location.pathname,
+          search: searchParams.toString() ? `?${searchParams.toString()}` : "",
+        },
+        { replace: true }
+      );
+    }
+  }, [authUser, location.pathname, location.search, navigate]);
+
   return (
     <>
       <header
         className="bg-base-100 border-b border-base-300 fixed w-full top-0 z-40 
       backdrop-blur-lg bg-base-100/80"
       >
-        <div className="container mx-auto px-4 h-16">
+        <div className="mx-auto h-16 max-w-7xl px-3 sm:px-4">
           <div className="flex items-center justify-between h-full">
-            <div className="flex items-center gap-8">
+            <div className="flex min-w-0 items-center gap-4">
               <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-all">
                 <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
                   <MessageSquare className="w-5 h-5 text-primary" />
                 </div>
-                <h1 className="text-lg font-bold">GargX</h1>
+                <h1 className="text-base font-bold sm:text-lg">GargX</h1>
               </Link>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {authUser && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
-                    className="btn btn-sm gap-2"
+                    className="btn btn-sm gap-2 px-2 sm:px-3"
                     onClick={() => setIsCreateGroupOpen(true)}
                     disabled={directUsers.length === 0}
+                    aria-label="Create group"
                   >
                     <Plus className="size-4" />
                     <span className="hidden sm:inline">New Group</span>
@@ -73,8 +93,9 @@ export const Navbar = () => {
 
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm gap-2"
+                    className="btn btn-primary btn-sm gap-2 px-2 sm:px-3"
                     onClick={() => setIsRequestsOpen(true)}
+                    aria-label="Open friend requests"
                   >
                     <UserPlus className="size-4" />
                     <span className="hidden sm:inline">Friend Requests</span>

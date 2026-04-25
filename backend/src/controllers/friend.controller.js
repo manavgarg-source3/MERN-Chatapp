@@ -1,13 +1,26 @@
 import User from "../models/user.model.js";
 import { io } from "../lib/socket.js";
+import {
+  getAppHomeUrl,
+  getFriendRequestsUrl,
+  sendFriendRequestAcceptedEmail,
+  sendFriendRequestEmail,
+} from "../lib/email.js";
 
 const USER_PREVIEW_FIELDS = "fullName email profilePic";
+const FIND_PEOPLE_PAGE_SIZE = 12;
 
 const hasUserId = (users = [], userId) =>
   users.some((value) => value.toString() === userId.toString());
 
 export const getFriendOverview = async (req, res) => {
   try {
+    const page = Math.max(Number.parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.min(
+      Math.max(Number.parseInt(req.query.limit || `${FIND_PEOPLE_PAGE_SIZE}`, 10), 1),
+      30
+    );
+    const search = (req.query.search || "").trim();
     const currentUser = await User.findById(req.user._id)
       .populate("incomingFriendRequests", USER_PREVIEW_FIELDS)
       .populate("outgoingFriendRequests", USER_PREVIEW_FIELDS);
@@ -19,16 +32,35 @@ export const getFriendOverview = async (req, res) => {
       ...currentUser.outgoingFriendRequests.map((user) => user._id.toString()),
     ];
 
-    const availableUsers = await User.find({
+    const searchRegex = search ? new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") : null;
+    const availableUsersQuery = {
       _id: { $nin: excludedUserIds },
-    })
+      ...(searchRegex
+        ? {
+            $or: [{ fullName: searchRegex }, { email: searchRegex }],
+          }
+        : {}),
+    };
+
+    const availableUsers = await User.find(availableUsersQuery)
       .select(USER_PREVIEW_FIELDS)
-      .sort({ fullName: 1 });
+      .sort({ fullName: 1, _id: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit + 1);
+
+    const hasMoreAvailableUsers = availableUsers.length > limit;
+    const paginatedAvailableUsers = hasMoreAvailableUsers ? availableUsers.slice(0, limit) : availableUsers;
 
     res.status(200).json({
-      availableUsers,
+      availableUsers: paginatedAvailableUsers,
       incomingRequests: currentUser.incomingFriendRequests,
       outgoingRequests: currentUser.outgoingFriendRequests,
+      pagination: {
+        page,
+        limit,
+        hasMore: hasMoreAvailableUsers,
+        search,
+      },
     });
   } catch (error) {
     console.log("Error in getFriendOverview controller:", error.message);
@@ -78,6 +110,17 @@ export const sendFriendRequest = async (req, res) => {
     io.to(senderId.toString()).emit("friendsUpdated");
     io.to(receiverId.toString()).emit("friendsUpdated");
 
+    try {
+      await sendFriendRequestEmail({
+        toEmail: receiver.email,
+        toName: receiver.fullName,
+        fromName: sender.fullName,
+        requestsUrl: getFriendRequestsUrl(),
+      });
+    } catch (emailError) {
+      console.log("Error sending friend request email:", emailError.message);
+    }
+
     res.status(200).json({ message: "Friend request sent" });
   } catch (error) {
     console.log("Error in sendFriendRequest controller:", error.message);
@@ -116,6 +159,17 @@ export const acceptFriendRequest = async (req, res) => {
 
     io.to(senderId.toString()).emit("friendsUpdated");
     io.to(receiverId.toString()).emit("friendsUpdated");
+
+    try {
+      await sendFriendRequestAcceptedEmail({
+        toEmail: sender.email,
+        toName: sender.fullName,
+        acceptedByName: receiver.fullName,
+        chatUrl: getAppHomeUrl(),
+      });
+    } catch (emailError) {
+      console.log("Error sending friend request accepted email:", emailError.message);
+    }
 
     res.status(200).json({ message: "Friend request accepted" });
   } catch (error) {

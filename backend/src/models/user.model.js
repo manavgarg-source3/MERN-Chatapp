@@ -16,6 +16,18 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOtp: {
+      type: String,
+      default: null,
+    },
+    emailVerificationOtpExpires: {
+      type: Date,
+      default: null,
+    },
     profilePic: {
       type: String,
       default: "",
@@ -38,6 +50,14 @@ const userSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

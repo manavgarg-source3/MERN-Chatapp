@@ -350,9 +350,9 @@ export const MessageInput = () => {
     );
 
   return (
-    <div className="p-4 w-full">
+    <div className="w-full border-t border-base-300 bg-base-100 p-3 sm:p-4">
       {selectedAttachment && (
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex items-center gap-2 overflow-x-auto">
           <div className="relative">
             {renderAttachmentPreview()}
             <button
@@ -366,11 +366,11 @@ export const MessageInput = () => {
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-        <div className="flex-1 flex gap-2">
+      <form onSubmit={handleSendMessage} className="flex items-end gap-2">
+        <div className="flex flex-1 gap-2">
           <input
             type="text"
-            className="w-full input input-bordered rounded-lg input-sm sm:input-md"
+            className="min-h-[44px] w-full input input-bordered rounded-2xl px-4 text-sm sm:input-md"
             placeholder="Type a message..."
             value={text}
             onChange={handleTextChange}
@@ -387,7 +387,7 @@ export const MessageInput = () => {
 
           <button
             type="button"
-            className={`hidden sm:flex btn btn-circle ${
+            className={`btn btn-circle btn-sm sm:btn-md ${
               selectedAttachment ? "text-emerald-500" : "text-zinc-400"
             }`}
             onClick={() => fileInputRef.current?.click()}
@@ -399,7 +399,7 @@ export const MessageInput = () => {
 
           <button
             type="button"
-            className={`hidden sm:flex btn btn-circle ${
+            className={`btn btn-circle btn-sm sm:btn-md ${
               isRecording ? "btn-error text-white" : "text-zinc-400"
             }`}
             onClick={isRecording ? stopRecording : startRecording}
@@ -411,7 +411,7 @@ export const MessageInput = () => {
         </div>
         <button
           type="submit"
-          className="btn btn-sm btn-circle"
+          className="btn btn-primary btn-sm btn-circle min-h-[44px] min-w-[44px] sm:btn-md"
           disabled={isSending || isRecording || (!text.trim() && !selectedAttachment)}
         >
           {isSending ? <LoaderCircle size={20} className="animate-spin" /> : <Send size={22} />}
@@ -419,9 +419,9 @@ export const MessageInput = () => {
       </form>
 
       {isRecording && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-error/10 px-3 py-2 text-sm text-error">
+        <div className="mt-3 flex items-center gap-2 rounded-2xl bg-error/10 px-3 py-2 text-sm text-error">
           <span className="size-2 rounded-full bg-error animate-pulse" />
-          <span>Recording voice note… {formatRecordingDuration(recordingDuration)}</span>
+          <span>Recording voice note... {formatRecordingDuration(recordingDuration)}</span>
         </div>
       )}
     </div>

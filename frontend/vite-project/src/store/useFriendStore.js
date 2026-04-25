@@ -8,30 +8,81 @@ export const useFriendStore = create((set, get) => ({
   incomingRequests: [],
   outgoingRequests: [],
   isLoading: false,
+  isPeopleLoading: false,
+  hasMoreAvailableUsers: true,
+  availableUsersPage: 1,
+  availableUsersSearch: "",
   activeRequestId: null,
 
-  getFriendOverview: async () => {
-    set({ isLoading: true });
+  getFriendOverview: async ({ page = 1, search = "", append = false, mode = "refresh" } = {}) => {
+    const normalizedSearch = search.trim();
+    set({
+      isLoading: mode === "initial",
+      isPeopleLoading: append || mode === "search",
+    });
     try {
-      const res = await axiosInstance.get("/friends");
+      const res = await axiosInstance.get("/friends", {
+        params: {
+          page,
+          limit: 12,
+          search: normalizedSearch,
+        },
+      });
+
+      const nextAvailableUsers = res.data.availableUsers || [];
       set({
-        availableUsers: res.data.availableUsers || [],
+        availableUsers: append
+          ? [...get().availableUsers, ...nextAvailableUsers.filter(
+              (user) => !get().availableUsers.some((existingUser) => existingUser._id === user._id)
+            )]
+          : nextAvailableUsers,
         incomingRequests: res.data.incomingRequests || [],
         outgoingRequests: res.data.outgoingRequests || [],
+        availableUsersPage: page,
+        hasMoreAvailableUsers: Boolean(res.data.pagination?.hasMore),
+        availableUsersSearch: normalizedSearch,
       });
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not load friend requests");
     } finally {
-      set({ isLoading: false });
+      set({ isLoading: false, isPeopleLoading: false });
     }
+  },
+
+  searchAvailableUsers: async (search) => {
+    await get().getFriendOverview({ page: 1, search, append: false, mode: "search" });
+  },
+
+  loadMoreAvailableUsers: async () => {
+    const {
+      hasMoreAvailableUsers,
+      isPeopleLoading,
+      availableUsersPage,
+      availableUsersSearch,
+    } = get();
+
+    if (!hasMoreAvailableUsers || isPeopleLoading) return;
+
+    await get().getFriendOverview({
+      page: availableUsersPage + 1,
+      search: availableUsersSearch,
+      append: true,
+      mode: "append",
+    });
   },
 
   sendFriendRequest: async (userId) => {
     set({ activeRequestId: userId });
     try {
+      const requestedUser = get().availableUsers.find((user) => user._id === userId);
       await axiosInstance.post(`/friends/request/${userId}`);
+      if (requestedUser) {
+        set({
+          availableUsers: get().availableUsers.filter((user) => user._id !== userId),
+          outgoingRequests: [requestedUser, ...get().outgoingRequests],
+        });
+      }
       toast.success("Friend request sent");
-      await Promise.all([get().getFriendOverview(), useChatStore.getState().getUsers()]);
     } catch (error) {
       toast.error(error.response?.data?.message || "Could not send request");
     } finally {
@@ -42,10 +93,19 @@ export const useFriendStore = create((set, get) => ({
   acceptFriendRequest: async (userId) => {
     set({ activeRequestId: userId });
     try {
+      set({
+        incomingRequests: get().incomingRequests.filter((user) => user._id !== userId),
+      });
       await axiosInstance.post(`/friends/accept/${userId}`);
       toast.success("Friend request accepted");
-      await Promise.all([get().getFriendOverview(), useChatStore.getState().getUsers()]);
+      await useChatStore.getState().getUsers();
     } catch (error) {
+      await get().getFriendOverview({
+        page: 1,
+        search: get().availableUsersSearch,
+        append: false,
+        mode: "refresh",
+      });
       toast.error(error.response?.data?.message || "Could not accept request");
     } finally {
       set({ activeRequestId: null });
@@ -55,10 +115,18 @@ export const useFriendStore = create((set, get) => ({
   rejectFriendRequest: async (userId) => {
     set({ activeRequestId: userId });
     try {
+      set({
+        incomingRequests: get().incomingRequests.filter((user) => user._id !== userId),
+      });
       await axiosInstance.post(`/friends/reject/${userId}`);
       toast.success("Friend request rejected");
-      await get().getFriendOverview();
     } catch (error) {
+      await get().getFriendOverview({
+        page: 1,
+        search: get().availableUsersSearch,
+        append: false,
+        mode: "refresh",
+      });
       toast.error(error.response?.data?.message || "Could not reject request");
     } finally {
       set({ activeRequestId: null });

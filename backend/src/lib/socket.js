@@ -4,26 +4,29 @@ import express from "express";
 import dotenv from "dotenv";
 import Message from "../models/message.model.js";
 import Group from "../models/group.model.js";
+import { isOriginAllowed } from "./runtime.js";
+import { getSocketUserId } from "./socket-auth.js";
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  process.env.CLIENT_URL,
-].filter(Boolean);
-
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === "production" ? true : allowedOrigins,
+    origin: (origin, callback) => {
+      callback(isOriginAllowed(origin) ? null : new Error("Socket origin not allowed"), true);
+    },
     credentials: true,
   },
   transports: ["websocket", "polling"],
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 10e6,
+  connectionStateRecovery: {
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    skipMiddlewares: true,
+  },
 });
 
 // used to store online users
@@ -119,10 +122,16 @@ export async function syncUserGroupRooms(userId) {
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
-  const userId = socket.handshake.query.userId;
+  const userId = getSocketUserId(socket);
+  if (!userId) {
+    socket.disconnect(true);
+    return;
+  }
+
+  socket.data.userId = userId;
   if (userId) {
     socket.join(userId);
-    userSocketMap[userId] = [...(userSocketMap[userId] || []), socket.id];
+    userSocketMap[userId] = Array.from(new Set([...(userSocketMap[userId] || []), socket.id]));
     syncSocketToUserGroups(socket, userId).catch((error) => {
       console.log("Error joining group rooms:", error.message);
     });
@@ -166,8 +175,8 @@ io.on("connection", (socket) => {
     socket.data.activeChatUserId = null;
   });
 
-  socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.id);
+  socket.on("disconnect", (reason) => {
+    console.log("A user disconnected", socket.id, reason);
     if (userId) {
       userSocketMap[userId] = (userSocketMap[userId] || []).filter(
         (socketId) => socketId !== socket.id

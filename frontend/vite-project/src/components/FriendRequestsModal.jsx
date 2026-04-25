@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Check, Clock3, LoaderCircle, UserPlus, Users, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, Clock3, LoaderCircle, Search, UserPlus, Users, X } from "lucide-react";
 import { useFriendStore } from "../store/useFriendStore";
 
 export const FriendRequestsModal = ({ open, onClose }) => {
@@ -8,18 +8,58 @@ export const FriendRequestsModal = ({ open, onClose }) => {
     incomingRequests,
     outgoingRequests,
     isLoading,
+    isPeopleLoading,
+    hasMoreAvailableUsers,
     activeRequestId,
     getFriendOverview,
+    searchAvailableUsers,
+    loadMoreAvailableUsers,
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
   } = useFriendStore();
+  const [searchValue, setSearchValue] = useState("");
+  const loadMoreRef = useRef(null);
+  const skipNextSearchEffectRef = useRef(false);
 
   useEffect(() => {
     if (open) {
-      getFriendOverview();
+      skipNextSearchEffectRef.current = true;
+      setSearchValue("");
+      getFriendOverview({ page: 1, search: "", append: false, mode: "initial" });
     }
   }, [open, getFriendOverview]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    if (skipNextSearchEffectRef.current) {
+      skipNextSearchEffectRef.current = false;
+      return undefined;
+    }
+
+    const timeoutId = setTimeout(() => {
+      searchAvailableUsers(searchValue);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [open, searchValue, searchAvailableUsers]);
+
+  useEffect(() => {
+    if (!open || !loadMoreRef.current) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreAvailableUsers();
+        }
+      },
+      { rootMargin: "120px" }
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => observer.disconnect();
+  }, [open, loadMoreAvailableUsers, availableUsers.length, hasMoreAvailableUsers]);
 
   if (!open) return null;
 
@@ -39,7 +79,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
         </div>
 
         <div className="max-h-[75vh] overflow-y-auto px-5 py-4">
-          {isLoading ? (
+          {isLoading && incomingRequests.length === 0 && outgoingRequests.length === 0 && availableUsers.length === 0 ? (
             <div className="flex items-center justify-center py-16">
               <LoaderCircle className="size-8 animate-spin text-primary" />
             </div>
@@ -153,9 +193,22 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                   <h3 className="font-semibold">Find People</h3>
                 </div>
 
-                {availableUsers.length === 0 ? (
+                <label className="input input-bordered flex items-center gap-2">
+                  <Search className="size-4 text-base-content/50" />
+                  <input
+                    type="text"
+                    className="grow"
+                    placeholder="Search by name or email"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                  />
+                </label>
+
+                {!isLoading && availableUsers.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-base-300 p-4 text-sm text-base-content/60">
-                    No more users are available to add right now.
+                    {searchValue.trim()
+                      ? "No users matched your search."
+                      : "No more users are available to add right now."}
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -188,6 +241,16 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                         </button>
                       </div>
                     ))}
+
+                    {isPeopleLoading && (
+                      <div className="col-span-full flex items-center justify-center py-4">
+                        <LoaderCircle className="size-6 animate-spin text-primary" />
+                      </div>
+                    )}
+
+                    {hasMoreAvailableUsers && (
+                      <div ref={loadMoreRef} className="col-span-full h-2" aria-hidden="true" />
+                    )}
                   </div>
                 )}
               </section>

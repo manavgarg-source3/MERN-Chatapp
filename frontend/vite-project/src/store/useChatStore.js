@@ -65,7 +65,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   getUsers: async () => {
-    set({ isUsersLoading: true });
+    set({ isUsersLoading: get().directUsers.length === 0 });
     try {
       const res = await axiosInstance.get("/messages/users");
       set({ directUsers: (res.data || []).map(withUnreadCount) });
@@ -77,7 +77,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   getGroups: async () => {
-    set({ isGroupsLoading: true });
+    set({ isGroupsLoading: get().groups.length === 0 });
     try {
       const res = await axiosInstance.get("/messages/groups");
       const groups = (res.data || []).map(withUnreadCount);

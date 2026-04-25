@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, X } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import { GroupDetailsModal } from "./GroupDetailsModal";
@@ -38,9 +38,18 @@ export const ChatHeader = () => {
 
   return (
     <>
-      <div className="border-b border-base-300 p-2.5">
+      <div className="border-b border-base-300 px-3 py-2.5 sm:px-4">
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-circle md:hidden"
+              onClick={() => setSelectedChat(null)}
+              aria-label="Back to chats"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+
             <button
               type="button"
               className={`flex min-w-0 items-center gap-3 rounded-2xl px-1 py-1 text-left ${
@@ -66,7 +75,7 @@ export const ChatHeader = () => {
 
               <div className="min-w-0">
                 <h3 className="truncate font-medium">{selectedChat.fullName || selectedChat.name}</h3>
-                <p className="truncate text-sm text-base-content/70">
+                <p className="truncate text-xs text-base-content/70 sm:text-sm">
                   {isDirectChat
                     ? isTyping
                       ? "typing..."
@@ -82,8 +91,13 @@ export const ChatHeader = () => {
             </button>
           </div>
 
-          <button onClick={() => setSelectedChat(null)} type="button" aria-label="Close conversation">
-            <X />
+          <button
+            onClick={() => setSelectedChat(null)}
+            type="button"
+            aria-label="Close conversation"
+            className="btn btn-ghost btn-sm btn-circle hidden md:inline-flex"
+          >
+            <X className="size-5" />
           </button>
         </div>
       </div>

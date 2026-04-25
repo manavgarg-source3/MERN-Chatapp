@@ -89,124 +89,123 @@ export const Sidebar = () => {
   if (isUsersLoading || isGroupsLoading) return <SidebarSkeleton />;
 
   return (
-    <aside className="h-full w-20 border-r border-base-300 transition-all duration-200 lg:w-80">
-        <div className="flex h-full flex-col">
-          <div className="w-full border-b border-base-300 p-5">
+    <aside className="h-full w-full border-r-0 border-base-300 md:w-80 md:border-r lg:w-96">
+      <div className="flex h-full flex-col bg-base-100">
+        <div className="w-full border-b border-base-300 px-4 py-4 sm:px-5">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Users className="size-6" />
-              <span className="hidden font-medium lg:block">Chats & Groups</span>
+              <Users className="size-5 sm:size-6" />
+              <span className="font-medium">Chats & Groups</span>
             </div>
-
-            <div className="mt-3 hidden items-center justify-between gap-2 lg:flex">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={showOnlineOnly}
-                  onChange={(e) => setShowOnlineOnly(e.target.checked)}
-                  className="checkbox checkbox-sm"
-                />
-                <span className="text-sm">Show online friends only</span>
-              </label>
-              <span className="text-xs text-zinc-500">
-                {filteredDirectUsers.length + groups.length} conversations
-              </span>
-            </div>
+            <span className="text-xs text-zinc-500">
+              {filteredDirectUsers.length + groups.length} chats
+            </span>
           </div>
 
-          <div className="overflow-y-auto px-2 py-3">
-            <div className="mb-2 hidden px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45 lg:block">
-              Friends
-            </div>
-
-            {filteredDirectUsers.map((user) => (
-              <button
-                key={user._id}
-                onClick={() => setSelectedChat({ ...user, type: "direct" })}
-                className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
-                  selectedChat?._id === user._id && selectedChat?.type === "direct"
-                    ? "bg-base-300 ring-1 ring-base-300"
-                    : ""
-                }`}
-              >
-                <div className="relative mx-auto lg:mx-0">
-                  <img
-                    src={user.profilePic || "/avatar.png"}
-                    alt={user.fullName}
-                    className="size-12 rounded-full object-cover"
-                  />
-                  {onlineUsers.includes(user._id) && (
-                    <span className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 ring-2 ring-base-100" />
-                  )}
-                  <div className="absolute -right-1 -top-1 lg:hidden">
-                    <UnreadBadge count={user.unreadCount} />
-                  </div>
-                </div>
-
-                <div className="hidden min-w-0 flex-1 lg:block">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-medium">{user.fullName}</div>
-                    <UnreadBadge count={user.unreadCount} />
-                  </div>
-                  <div
-                    className={`text-sm ${user.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
-                  >
-                    {user.unreadCount
-                      ? `${user.unreadCount} new message${user.unreadCount === 1 ? "" : "s"}`
-                      : onlineUsers.includes(user._id)
-                        ? "Online"
-                        : "Offline"}
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            <div className="mb-2 mt-5 hidden px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45 lg:block">
-              Groups
-            </div>
-
-            {groups.map((group) => (
-              <button
-                key={group._id}
-                onClick={() => setSelectedChat(group)}
-                className={`mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
-                  selectedChat?._id === group._id && selectedChat?.type === "group"
-                    ? "bg-base-300 ring-1 ring-base-300"
-                    : ""
-                }`}
-              >
-                <div className="relative mx-auto lg:mx-0">
-                  <GroupAvatar group={group} />
-                  <div className="absolute -right-1 -top-1 lg:hidden">
-                    <UnreadBadge count={group.unreadCount} />
-                  </div>
-                </div>
-
-                <div className="hidden min-w-0 flex-1 lg:block">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate font-medium">{group.name}</div>
-                    <UnreadBadge count={group.unreadCount} />
-                  </div>
-                  <div
-                    className={`text-sm ${group.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
-                  >
-                    {group.unreadCount
-                      ? `${group.unreadCount} new message${group.unreadCount === 1 ? "" : "s"}`
-                      : `${group.memberCount} member${group.memberCount === 1 ? "" : "s"}`}
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {filteredDirectUsers.length === 0 && groups.length === 0 && (
-              <div className="px-5 py-8 text-center text-zinc-500">
-                <p className="font-medium">No conversations yet</p>
-                <p className="mt-1 text-sm">
-                  Accept some friends first, then start a direct chat or create a group.
-                </p>
-              </div>
-            )}
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-base-200 px-3 py-2">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showOnlineOnly}
+                onChange={(e) => setShowOnlineOnly(e.target.checked)}
+                className="checkbox checkbox-sm"
+              />
+              <span className="text-sm">Online only</span>
+            </label>
+            <span className="text-xs text-zinc-500">
+              {filteredDirectUsers.length + groups.length} total
+            </span>
           </div>
         </div>
-      </aside>
+
+        <div className="overflow-y-auto px-2 py-3 sm:px-3">
+          <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+            Friends
+          </div>
+
+          {filteredDirectUsers.map((user) => (
+            <button
+              key={user._id}
+              onClick={() => setSelectedChat({ ...user, type: "direct" })}
+              className={`mb-1.5 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
+                selectedChat?._id === user._id && selectedChat?.type === "direct"
+                  ? "bg-base-300 ring-1 ring-base-300"
+                  : ""
+              }`}
+            >
+              <div className="relative shrink-0">
+                <img
+                  src={user.profilePic || "/avatar.png"}
+                  alt={user.fullName}
+                  className="size-12 rounded-full object-cover"
+                />
+                {onlineUsers.includes(user._id) && (
+                  <span className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 ring-2 ring-base-100" />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate font-medium">{user.fullName}</div>
+                  <UnreadBadge count={user.unreadCount} />
+                </div>
+                <div
+                  className={`truncate text-sm ${user.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
+                >
+                  {user.unreadCount
+                    ? `${user.unreadCount} new message${user.unreadCount === 1 ? "" : "s"}`
+                    : onlineUsers.includes(user._id)
+                      ? "Online"
+                      : "Offline"}
+                </div>
+              </div>
+            </button>
+          ))}
+
+          <div className="mb-2 mt-5 px-3 text-xs font-semibold uppercase tracking-[0.2em] text-base-content/45">
+            Groups
+          </div>
+
+          {groups.map((group) => (
+            <button
+              key={group._id}
+              onClick={() => setSelectedChat(group)}
+              className={`mb-1.5 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition-colors hover:bg-base-300 ${
+                selectedChat?._id === group._id && selectedChat?.type === "group"
+                  ? "bg-base-300 ring-1 ring-base-300"
+                  : ""
+              }`}
+            >
+              <div className="relative shrink-0">
+                <GroupAvatar group={group} />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="truncate font-medium">{group.name}</div>
+                  <UnreadBadge count={group.unreadCount} />
+                </div>
+                <div
+                  className={`truncate text-sm ${group.unreadCount ? "font-medium text-primary" : "text-zinc-400"}`}
+                >
+                  {group.unreadCount
+                    ? `${group.unreadCount} new message${group.unreadCount === 1 ? "" : "s"}`
+                    : `${group.memberCount} member${group.memberCount === 1 ? "" : "s"}`}
+                </div>
+              </div>
+            </button>
+          ))}
+
+          {filteredDirectUsers.length === 0 && groups.length === 0 && (
+            <div className="px-5 py-8 text-center text-zinc-500">
+              <p className="font-medium">No conversations yet</p>
+              <p className="mt-1 text-sm">
+                Accept some friends first, then start a direct chat or create a group.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </aside>
   );
 };

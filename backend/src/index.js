@@ -9,6 +9,7 @@ import { connectDB } from "./lib/db.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { app, server } from "./lib/socket.js";
+import { isOriginAllowed } from "./lib/runtime.js";
 
 dotenv.config();
 
@@ -16,11 +17,11 @@ const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const frontendDistPath = path.join(__dirname, "../../frontend/vite-project/dist");
-const allowedOrigins = ["http://localhost:5173", process.env.CLIENT_URL].filter(Boolean);
-
 app.use(
   cors({
-    origin: process.env.NODE_ENV === "production" ? true : allowedOrigins,
+    origin: (origin, callback) => {
+      callback(isOriginAllowed(origin) ? null : new Error("HTTP origin not allowed"), true);
+    },
     credentials: true,
     methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     allowedHeaders: "Content-Type, Authorization",
