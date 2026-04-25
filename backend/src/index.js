@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.route.js";
 import friendRoutes from "./routes/friend.route.js";
@@ -16,7 +17,19 @@ dotenv.config();
 const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const frontendDistPath = path.join(__dirname, "../../frontend/vite-project/dist");
+
+const resolveFrontendDistPath = () => {
+  const candidatePaths = [
+    process.env.FRONTEND_DIST_PATH,
+    path.resolve(process.cwd(), "frontend/vite-project/dist"),
+    path.resolve(__dirname, "../../frontend/vite-project/dist"),
+  ].filter(Boolean);
+
+  return candidatePaths.find((candidatePath) => fs.existsSync(candidatePath));
+};
+
+const frontendDistPath = resolveFrontendDistPath();
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -35,12 +48,20 @@ app.use(cookieParser());
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messageRoute);
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(frontendDistPath));
 
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(frontendDistPath, "index.html"));
-  });
+if (process.env.NODE_ENV === "production") {
+  if (!frontendDistPath) {
+    console.error(
+      "Frontend build not found. Set FRONTEND_DIST_PATH or build the frontend before starting the server."
+    );
+  } else {
+    console.log(`Serving frontend from ${frontendDistPath}`);
+    app.use(express.static(frontendDistPath));
+
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(frontendDistPath, "index.html"));
+    });
+  }
 }
 
 
