@@ -10,7 +10,6 @@ import { connectDB } from "./lib/db.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { app, server } from "./lib/socket.js";
-import { isOriginAllowed } from "./lib/runtime.js";
 
 dotenv.config();
 
@@ -18,6 +17,7 @@ const PORT = process.env.PORT || 5001;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 🔍 Resolve frontend build path (for Render)
 const resolveFrontendDistPath = () => {
   const candidatePaths = [
     process.env.FRONTEND_DIST_PATH,
@@ -29,31 +29,37 @@ const resolveFrontendDistPath = () => {
 };
 
 const frontendDistPath = resolveFrontendDistPath();
-const corsOptions = {
-  origin: (origin, callback) => {
-    callback(isOriginAllowed(origin) ? null : new Error("HTTP origin not allowed"), true);
-  },
-  credentials: true,
-  methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  allowedHeaders: "Content-Type, Authorization",
-};
 
-app.use(express.json({ limit: "25mb" })); 
+// 🔥 IMPORTANT: control frontend serving manually
+const shouldServeFrontend = process.env.SERVE_FRONTEND === "true";
+
+// ✅ Middlewares
+app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
-app.use("/api", cors(corsOptions));
 
+// ✅ CORS (fixed)
+app.use(
+  cors({
+    origin: true, // allow all for now (you can restrict later)
+    credentials: true,
+  })
+);
+
+// ✅ Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messageRoute);
 
-if (process.env.NODE_ENV === "production") {
+// ✅ Serve frontend ONLY when needed (Render)
+if (shouldServeFrontend) {
   if (!frontendDistPath) {
     console.error(
-      "Frontend build not found. Set FRONTEND_DIST_PATH or build the frontend before starting the server."
+      "Frontend build not found. Set FRONTEND_DIST_PATH or build the frontend."
     );
   } else {
     console.log(`Serving frontend from ${frontendDistPath}`);
+
     app.use(express.static(frontendDistPath));
 
     app.get("*", (req, res) => {
@@ -62,7 +68,7 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-
+// 🚀 Start server
 server.listen(PORT, () => {
   console.log("Server is running on Port:" + PORT);
   connectDB();
