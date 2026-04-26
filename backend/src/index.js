@@ -30,7 +30,7 @@ const resolveFrontendDistPath = () => {
 
 const frontendDistPath = resolveFrontendDistPath();
 
-// 🔥 IMPORTANT: control frontend serving manually
+// 🔥 Control frontend serving
 const shouldServeFrontend = process.env.SERVE_FRONTEND === "true";
 
 // ✅ Middlewares
@@ -38,20 +38,20 @@ app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
 
-// ✅ CORS (fixed)
+// ✅ CORS
 app.use(
   cors({
-    origin: true, // allow all for now (you can restrict later)
+    origin: true,
     credentials: true,
   })
 );
 
-// ✅ Routes
+// ✅ API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messageRoute);
 
-// ✅ Serve frontend ONLY when needed (Render)
+// ✅ Serve frontend ONLY on Render
 if (shouldServeFrontend) {
   if (!frontendDistPath) {
     console.error(
@@ -62,8 +62,9 @@ if (shouldServeFrontend) {
 
     app.use(express.static(frontendDistPath));
 
+    // 🔥 IMPORTANT FIX (more reliable than path.join)
     app.get("*", (req, res) => {
-      res.sendFile(path.join(frontendDistPath, "index.html"));
+      res.sendFile("index.html", { root: frontendDistPath });
     });
   }
 }
