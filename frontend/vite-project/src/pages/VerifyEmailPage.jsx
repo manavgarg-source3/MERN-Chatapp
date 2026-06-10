@@ -35,22 +35,22 @@ export const VerifyEmailPage = () => {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="app-aurora grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center mb-8">
-            <div className="flex flex-col items-center gap-2 group">
-              <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <MessageSquare className="size-6 text-primary" />
+        <div className="glass edge-light w-full max-w-md space-y-7 rounded-3xl p-7 shadow-soft sm:p-9">
+          <div className="mb-2 text-center">
+            <div className="group flex flex-col items-center gap-2">
+              <div className="brand-gradient flex size-12 items-center justify-center rounded-2xl shadow-glow-sm transition-transform group-hover:scale-105">
+                <MessageSquare className="size-6 text-white" />
               </div>
-              <h1 className="mt-2 text-2xl font-bold">Verify your email</h1>
-              <p className="text-base-content/60">
+              <h1 className="mt-2 text-2xl font-bold tracking-tightish">Verify your email</h1>
+              <p className="text-base-content/55">
                 Enter the 6-digit OTP sent to your email before logging in.
               </p>
             </div>
           </div>
 
-          <form onSubmit={handleVerify} className="space-y-6">
+          <form onSubmit={handleVerify} className="space-y-5">
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Email</span>

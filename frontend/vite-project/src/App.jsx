@@ -9,23 +9,31 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { Navbar } from "./components/Navbar";
+import { CallOverlay } from "./components/CallOverlay";
 import { useAuthStore } from "./store/useAuthStore";
 import { useThemeStore } from "./store/useThemeStore";
+import { useCallStore } from "./store/useCallStore";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
 
 const App = () => {
-  const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
+  const { authUser, checkAuth, isCheckingAuth, socket } = useAuthStore();
   const { theme } = useThemeStore();
+  const bindSocketEvents = useCallStore((state) => state.bindSocketEvents);
 
   useEffect(() => {
-    console.log("Applying theme:", theme);
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);// Re-apply theme on change
 
   useEffect(() => {
-    checkAuth();  
+    checkAuth();
   }, [checkAuth]);
+
+  // Wire up call signaling whenever the socket (re)connects
+  useEffect(() => {
+    if (!socket) return undefined;
+    return bindSocketEvents(socket);
+  }, [socket, bindSocketEvents]);
 
   if (isCheckingAuth && !authUser) {
     return (
@@ -48,6 +56,7 @@ const App = () => {
         <Route path="/settings" element={authUser ? <SettingsPage /> : <Navigate to="/login" />} />
         <Route path="/profile" element={authUser ? <ProfilePage /> : <Navigate to="/login" />} />
       </Routes>
+      <CallOverlay />
       <Toaster />
     </div>
   );

@@ -35,26 +35,25 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="h-screen grid lg:grid-cols-2">
+    <div className="app-aurora grid min-h-screen lg:grid-cols-2">
       {/* Left Side - Form */}
-      <div className="flex flex-col justify-center items-center p-6 sm:p-12">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-col items-center justify-center p-6 sm:p-12">
+        <div className="glass edge-light w-full max-w-md space-y-8 rounded-3xl p-7 shadow-soft sm:p-9">
           {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="flex flex-col items-center gap-2 group">
-              <div
-                className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20
-              transition-colors"
-              >
-                <MessageSquare className="w-6 h-6 text-primary" />
+          <div className="mb-2 text-center">
+            <div className="group flex flex-col items-center gap-2">
+              <div className="brand-gradient flex h-12 w-12 items-center justify-center rounded-2xl shadow-glow-sm transition-transform group-hover:scale-105">
+                <MessageSquare className="h-6 w-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold mt-2">Welcome Back</h1>
-              <p className="text-base-content/60">Sign in to your account</p>
+              <h1 className="mt-2 text-2xl font-bold tracking-tightish">
+                Welcome to <span className="text-gradient">GargX</span>
+              </h1>
+              <p className="text-base-content/55">Sign in to your account</p>
             </div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Email</span>

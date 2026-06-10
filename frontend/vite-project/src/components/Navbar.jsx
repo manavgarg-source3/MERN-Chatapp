@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from "../store/useAuthStore";
 import { useFriendStore } from "../store/useFriendStore";
 import { useChatStore } from "../store/useChatStore";
+import { usePrefsStore } from "../store/usePrefsStore";
 import { FriendRequestsModal } from "./FriendRequestsModal";
 import { CreateGroupModal } from "./CreateGroupModal";
 
@@ -20,9 +21,12 @@ export const Navbar = () => {
   const { logout, authUser, socket } = useAuthStore();
   const { incomingRequests, getFriendOverview } = useFriendStore();
   const { directUsers } = useChatStore();
+  const avatarRing = usePrefsStore((s) => s.avatarRing);
   const [isRequestsOpen, setIsRequestsOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const userInitial = authUser?.fullName?.charAt(0)?.toUpperCase() || "U";
+  const ringClass =
+    avatarRing && avatarRing !== "none" ? `avatar-ring avatar-ring-${avatarRing}` : "";
 
   useEffect(() => {
     if (!authUser) return;
@@ -63,17 +67,19 @@ export const Navbar = () => {
   return (
     <>
       <header
-        className="bg-base-100 border-b border-base-300 fixed w-full top-0 z-40 
-      backdrop-blur-lg bg-base-100/80"
+        className="glass-strong edge-light fixed top-0 z-40 w-full border-x-0 border-t-0 border-b border-white/5"
       >
         <div className="mx-auto h-16 max-w-7xl px-3 sm:px-4">
           <div className="flex items-center justify-between h-full">
             <div className="flex min-w-0 items-center gap-4">
-              <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-all">
-                <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-primary" />
+              <Link to="/" className="group flex items-center gap-2.5 transition-all">
+                <div className="brand-gradient flex size-9 items-center justify-center rounded-xl shadow-glow-sm transition-transform duration-200 group-hover:scale-105">
+                  <MessageSquare className="h-5 w-5 text-white" />
                 </div>
-                <h1 className="text-base font-bold sm:text-lg">GargX</h1>
+                <h1 className="text-lg font-bold tracking-tightish">
+                  <span className="text-gradient">Garg</span>
+                  <span className="text-base-content">X</span>
+                </h1>
               </Link>
             </div>
 
@@ -82,7 +88,7 @@ export const Navbar = () => {
                 <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
-                    className="btn btn-sm gap-2 px-2 sm:px-3"
+                    className="btn btn-sm gap-2 rounded-xl border-white/10 bg-white/5 px-2 hover:bg-white/10 sm:px-3"
                     onClick={() => setIsCreateGroupOpen(true)}
                     disabled={directUsers.length === 0}
                     aria-label="Create group"
@@ -93,14 +99,14 @@ export const Navbar = () => {
 
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm gap-2 px-2 sm:px-3"
+                    className="btn btn-primary btn-sm gap-2 rounded-xl px-2 sm:px-3"
                     onClick={() => setIsRequestsOpen(true)}
                     aria-label="Open friend requests"
                   >
                     <UserPlus className="size-4" />
                     <span className="hidden sm:inline">Friend Requests</span>
                     {incomingRequests.length > 0 && (
-                      <span className="rounded-full bg-primary-content px-1.5 py-0.5 text-[10px] text-primary">
+                      <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                         {incomingRequests.length}
                       </span>
                     )}
@@ -110,23 +116,25 @@ export const Navbar = () => {
                     <button
                       type="button"
                       tabIndex={0}
-                      className="btn btn-ghost btn-circle avatar"
+                      className="btn btn-ghost btn-circle avatar transition-transform hover:scale-105"
                       aria-label="Open profile menu"
                     >
-                      {authUser.profilePic ? (
-                        <div className="w-10 rounded-full border border-base-300">
-                          <img src={authUser.profilePic} alt={authUser.fullName} />
-                        </div>
-                      ) : (
-                        <div className="w-10 rounded-full border border-base-300 bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
-                          {userInitial}
-                        </div>
-                      )}
+                      <span className={`${ringClass} rounded-full`}>
+                        {authUser.profilePic ? (
+                          <div className="w-10 overflow-hidden rounded-full ring-2 ring-primary/40 ring-offset-2 ring-offset-base-100">
+                            <img src={authUser.profilePic} alt={authUser.fullName} />
+                          </div>
+                        ) : (
+                          <div className="brand-gradient flex w-10 items-center justify-center rounded-full text-sm font-semibold text-white ring-2 ring-primary/30 ring-offset-2 ring-offset-base-100">
+                            {userInitial}
+                          </div>
+                        )}
+                      </span>
                     </button>
 
                     <ul
                       tabIndex={0}
-                      className="dropdown-content menu z-[60] mt-3 w-52 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
+                      className="dropdown-content menu glass-strong z-[60] mt-3 w-56 rounded-2xl p-2 shadow-soft"
                     >
                       <li className="menu-title px-2 py-1">
                         <span>{authUser.fullName}</span>

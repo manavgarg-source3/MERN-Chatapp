@@ -6,6 +6,7 @@ import Message from "../models/message.model.js";
 import Group from "../models/group.model.js";
 import { isOriginAllowed } from "./runtime.js";
 import { getSocketUserId } from "./socket-auth.js";
+import { registerCallHandlers } from "./call.js";
 
 dotenv.config();
 
@@ -29,8 +30,10 @@ const io = new Server(server, {
   },
 });
 
+const normalizeId = (value) => (value == null ? "" : String(value));
+
 // used to store online users
-const userSocketMap = {}; // {userId: [socketId]}
+const userSocketMap = new Map(); // Map<userId, Set<socketId>>
 const getGroupRoomId = (groupId) => `group:${groupId}`;
 
 const syncSocketToUserGroups = async (socket, userId) => {
@@ -96,52 +99,65 @@ const markUserMessagesAsDelivered = async (userId) => {
 };
 
 export function isUserOnline(userId) {
-  return Boolean(userSocketMap[userId]?.length);
+  return Boolean(userSocketMap.get(normalizeId(userId))?.size);
 }
 
 export function isUserViewingConversation(userId, otherUserId) {
-  return (userSocketMap[userId] || []).some((socketId) => {
+  const normalizedUserId = normalizeId(userId);
+  const normalizedOtherUserId = normalizeId(otherUserId);
+
+  return Array.from(userSocketMap.get(normalizedUserId) || []).some((socketId) => {
     const socket = io.sockets.sockets.get(socketId);
-    return socket?.data?.activeChatUserId === otherUserId;
+    return normalizeId(socket?.data?.activeChatUserId) === normalizedOtherUserId;
   });
 }
 
 export async function syncUserGroupRooms(userId) {
-  const socketIds = userSocketMap[userId] || [];
+  const normalizedUserId = normalizeId(userId);
+  const socketIds = Array.from(userSocketMap.get(normalizedUserId) || []);
   if (!socketIds.length) return;
 
   socketIds.forEach((socketId) => {
     const socket = io.sockets.sockets.get(socketId);
     if (!socket) return;
-    syncSocketToUserGroups(socket, userId).catch((error) => {
+    syncSocketToUserGroups(socket, normalizedUserId).catch((error) => {
       console.log("Error syncing group rooms:", error.message);
     });
   });
 }
 
+const emitOnlineUsers = () => {
+  io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
+};
+
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
-  const userId = getSocketUserId(socket);
+  const userId = normalizeId(getSocketUserId(socket));
   if (!userId) {
     socket.disconnect(true);
     return;
   }
 
   socket.data.userId = userId;
-  if (userId) {
-    socket.join(userId);
-    userSocketMap[userId] = Array.from(new Set([...(userSocketMap[userId] || []), socket.id]));
-    syncSocketToUserGroups(socket, userId).catch((error) => {
-      console.log("Error joining group rooms:", error.message);
-    });
-    markUserMessagesAsDelivered(userId).catch((error) => {
-      console.log("Error marking messages as delivered:", error.message);
-    });
-  }
+  socket.join(userId);
+
+  const activeSockets = userSocketMap.get(userId) || new Set();
+  activeSockets.add(socket.id);
+  userSocketMap.set(userId, activeSockets);
+
+  syncSocketToUserGroups(socket, userId).catch((error) => {
+    console.log("Error joining group rooms:", error.message);
+  });
+  markUserMessagesAsDelivered(userId).catch((error) => {
+    console.log("Error marking messages as delivered:", error.message);
+  });
 
   // io.emit() is used to send events to all the connected clients
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  emitOnlineUsers();
+
+  // 1:1 WebRTC call signaling (offer/answer/ICE/reject/end relay)
+  registerCallHandlers(io, socket, { userId, isUserOnline });
 
   socket.on("typing:start", ({ receiverId }) => {
     if (!userId || !receiverId) return;
@@ -168,7 +184,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("conversation:open", ({ otherUserId }) => {
-    socket.data.activeChatUserId = otherUserId || null;
+    socket.data.activeChatUserId = normalizeId(otherUserId) || null;
   });
 
   socket.on("conversation:close", () => {
@@ -178,12 +194,14 @@ io.on("connection", (socket) => {
   socket.on("disconnect", (reason) => {
     console.log("A user disconnected", socket.id, reason);
     if (userId) {
-      userSocketMap[userId] = (userSocketMap[userId] || []).filter(
-        (socketId) => socketId !== socket.id
-      );
-      if (userSocketMap[userId].length === 0) delete userSocketMap[userId];
+      const activeUserSockets = userSocketMap.get(userId);
+      activeUserSockets?.delete(socket.id);
+
+      if (!activeUserSockets?.size) {
+        userSocketMap.delete(userId);
+      }
     }
-    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    emitOnlineUsers();
   });
 });
 

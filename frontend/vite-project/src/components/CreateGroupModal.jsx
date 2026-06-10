@@ -62,10 +62,10 @@ export const CreateGroupModal = ({ open, onClose }) => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-base-300 bg-base-100 shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-base-300 px-6 py-4">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="glass-strong animate-pop-in w-full max-w-lg rounded-3xl shadow-soft">
+        <div className="flex items-center gap-3 border-b border-white/8 px-6 py-4">
+          <div className="brand-gradient flex size-11 items-center justify-center rounded-2xl text-white">
             <Users className="size-5" />
           </div>
           <div>
@@ -83,7 +83,7 @@ export const CreateGroupModal = ({ open, onClose }) => {
               className="relative"
               onClick={() => fileInputRef.current?.click()}
             >
-              <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border border-base-300 bg-base-200">
+              <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border border-white/8 bg-base-200">
                 {groupImage ? (
                   <img src={groupImage} alt="Group preview" className="size-full object-cover" />
                 ) : (
@@ -123,7 +123,7 @@ export const CreateGroupModal = ({ open, onClose }) => {
               </span>
             </div>
 
-            <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-base-300 p-2">
+            <div className="max-h-72 space-y-2 overflow-y-auto rounded-2xl border border-white/8 p-2">
               {sortedFriends.map((user) => (
                 <label
                   key={user._id}

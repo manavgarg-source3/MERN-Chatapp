@@ -7,6 +7,8 @@ const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   (import.meta.env.MODE === "development" ? "http://localhost:5001" : window.location.origin);
 
+const normalizeId = (value) => (value == null ? "" : String(value));
+
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   pendingVerificationEmail: "",
@@ -194,7 +196,7 @@ export const useAuthStore = create((set, get) => ({
     });
 
     socket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
+      set({ onlineUsers: (userIds || []).map(normalizeId) });
     });
 
     socket.connect();

@@ -64,9 +64,9 @@ export const FriendRequestsModal = ({ open, onClose }) => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-3xl rounded-2xl border border-base-300 bg-base-100 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-base-300 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="glass-strong animate-pop-in w-full max-w-3xl rounded-3xl shadow-soft">
+        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
           <div>
             <h2 className="text-lg font-semibold">Friend Requests</h2>
             <p className="text-sm text-base-content/60">
@@ -95,7 +95,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                 </div>
 
                 {incomingRequests.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-base-300 p-4 text-sm text-base-content/60">
+                  <div className="rounded-xl border border-dashed border-white/8 p-4 text-sm text-base-content/60">
                     No pending requests right now.
                   </div>
                 ) : (
@@ -103,7 +103,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                     {incomingRequests.map((user) => (
                       <div
                         key={user._id}
-                        className="flex flex-col gap-3 rounded-xl border border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-xl border border-white/8 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-3">
                           <img
@@ -156,7 +156,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                 </div>
 
                 {outgoingRequests.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-base-300 p-4 text-sm text-base-content/60">
+                  <div className="rounded-xl border border-dashed border-white/8 p-4 text-sm text-base-content/60">
                     No outgoing requests yet.
                   </div>
                 ) : (
@@ -164,7 +164,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                     {outgoingRequests.map((user) => (
                       <div
                         key={user._id}
-                        className="flex items-center justify-between rounded-xl border border-base-300 p-4"
+                        className="flex items-center justify-between rounded-xl border border-white/8 p-4"
                       >
                         <div className="flex items-center gap-3">
                           <img
@@ -205,7 +205,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                 </label>
 
                 {!isLoading && availableUsers.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-base-300 p-4 text-sm text-base-content/60">
+                  <div className="rounded-xl border border-dashed border-white/8 p-4 text-sm text-base-content/60">
                     {searchValue.trim()
                       ? "No users matched your search."
                       : "No more users are available to add right now."}
@@ -213,7 +213,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
                     {availableUsers.map((user) => (
-                      <div key={user._id} className="rounded-xl border border-base-300 p-4">
+                      <div key={user._id} className="rounded-xl border border-white/8 p-4">
                         <div className="flex items-center gap-3">
                           <img
                             src={user.profilePic || "/avatar.png"}

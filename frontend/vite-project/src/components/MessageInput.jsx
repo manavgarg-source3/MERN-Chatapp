@@ -7,11 +7,13 @@ import {
   Music,
   Paperclip,
   Send,
+  Smile,
   Square,
   Video,
   X,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { EmojiPicker } from "./EmojiPicker";
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 const SUPPORTED_ATTACHMENT_TYPES =
@@ -43,6 +45,7 @@ export const MessageInput = () => {
   const [isSending, setIsSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isEmojiOpen, setIsEmojiOpen] = useState(false);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -105,6 +108,13 @@ export const MessageInput = () => {
       }
     };
   }, [selectedAttachment]);
+
+  const insertEmoji = (emoji) => {
+    setText((prev) => prev + emoji);
+    sendTypingStatus(true);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => sendTypingStatus(false), 1200);
+  };
 
   const handleTextChange = (e) => {
     const value = e.target.value;
@@ -350,14 +360,14 @@ export const MessageInput = () => {
     );
 
   return (
-    <div className="w-full border-t border-base-300 bg-base-100 p-3 sm:p-4">
+    <div className="glass-strong edge-light w-full border-x-0 border-b-0 border-t border-white/5 p-3 sm:p-4">
       {selectedAttachment && (
-        <div className="mb-3 flex items-center gap-2 overflow-x-auto">
+        <div className="mb-3 flex animate-fade-up items-center gap-2 overflow-x-auto">
           <div className="relative">
             {renderAttachmentPreview()}
             <button
               onClick={removeAttachment}
-              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300 flex items-center justify-center"
+              className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-error text-white shadow-md ring-2 ring-base-100"
               type="button"
             >
               <X className="size-3" />
@@ -366,12 +376,29 @@ export const MessageInput = () => {
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-        <div className="flex flex-1 gap-2">
+      <form onSubmit={handleSendMessage} className="relative flex items-end gap-2">
+        {isEmojiOpen && (
+          <EmojiPicker
+            onSelect={insertEmoji}
+            onClose={() => setIsEmojiOpen(false)}
+          />
+        )}
+        <div className="flex flex-1 items-center gap-1.5 rounded-2xl border border-white/10 bg-base-200/60 px-1.5 py-1 transition focus-within:border-primary/50 focus-within:shadow-[0_0_0_4px_rgba(124,92,255,0.14)]">
+          <button
+            type="button"
+            className={`btn btn-circle btn-ghost btn-sm transition-colors ${
+              isEmojiOpen ? "text-primary" : "text-base-content/50 hover:text-base-content"
+            }`}
+            onClick={() => setIsEmojiOpen((v) => !v)}
+            disabled={isSending || isRecording}
+            aria-label="Emoji picker"
+          >
+            <Smile size={20} />
+          </button>
           <input
             type="text"
-            className="min-h-[44px] w-full input input-bordered rounded-2xl px-4 text-sm sm:input-md"
-            placeholder="Type a message..."
+            className="min-h-[40px] w-full flex-1 border-0 bg-transparent px-1 text-sm outline-none placeholder:text-base-content/40 focus:outline-none"
+            placeholder="Type a message…"
             value={text}
             onChange={handleTextChange}
             disabled={isSending || isRecording}
@@ -387,8 +414,8 @@ export const MessageInput = () => {
 
           <button
             type="button"
-            className={`btn btn-circle btn-sm sm:btn-md ${
-              selectedAttachment ? "text-emerald-500" : "text-zinc-400"
+            className={`btn btn-circle btn-ghost btn-sm transition-colors ${
+              selectedAttachment ? "text-emerald-400" : "text-base-content/50 hover:text-base-content"
             }`}
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending || isRecording}
@@ -399,8 +426,10 @@ export const MessageInput = () => {
 
           <button
             type="button"
-            className={`btn btn-circle btn-sm sm:btn-md ${
-              isRecording ? "btn-error text-white" : "text-zinc-400"
+            className={`btn btn-circle btn-sm transition-colors ${
+              isRecording
+                ? "btn-error text-white"
+                : "btn-ghost text-base-content/50 hover:text-base-content"
             }`}
             onClick={isRecording ? stopRecording : startRecording}
             disabled={isSending}
@@ -411,17 +440,17 @@ export const MessageInput = () => {
         </div>
         <button
           type="submit"
-          className="btn btn-primary btn-sm btn-circle min-h-[44px] min-w-[44px] sm:btn-md"
+          className="btn btn-primary btn-circle min-h-[46px] min-w-[46px] shadow-glow disabled:opacity-40 disabled:shadow-none"
           disabled={isSending || isRecording || (!text.trim() && !selectedAttachment)}
         >
-          {isSending ? <LoaderCircle size={20} className="animate-spin" /> : <Send size={22} />}
+          {isSending ? <LoaderCircle size={20} className="animate-spin" /> : <Send size={20} />}
         </button>
       </form>
 
       {isRecording && (
-        <div className="mt-3 flex items-center gap-2 rounded-2xl bg-error/10 px-3 py-2 text-sm text-error">
-          <span className="size-2 rounded-full bg-error animate-pulse" />
-          <span>Recording voice note... {formatRecordingDuration(recordingDuration)}</span>
+        <div className="mt-3 flex animate-fade-up items-center gap-2 rounded-2xl border border-error/20 bg-error/10 px-3 py-2 text-sm text-error">
+          <span className="size-2.5 animate-pulse rounded-full bg-error shadow-[0_0_8px_rgba(251,113,133,0.8)]" />
+          <span>Recording voice note… {formatRecordingDuration(recordingDuration)}</span>
         </div>
       )}
     </div>

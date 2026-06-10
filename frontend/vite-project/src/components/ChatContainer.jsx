@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   CheckCheck,
@@ -18,6 +18,8 @@ import { ChatHeader } from "./ChatHeader";
 import { MessageInput } from "./MessageInput";
 import { MessageSkeleton } from "./MessageSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
+import { usePrefsStore } from "../store/usePrefsStore";
+import { getWallpaperById } from "../constants/personalization";
 import { formatMessageTime } from "../lib/utils";
 
 const getMessageAttachment = (message) => {
@@ -74,15 +76,15 @@ const getReadByEntries = (message, authUser) =>
   );
 
 const GroupMessageAvatar = ({ sender, fallbackIcon = false }) => (
-  <div className="size-10 rounded-full border border-base-300">
+  <div className="size-10 overflow-hidden rounded-2xl ring-1 ring-white/10">
     {sender?.profilePic ? (
       <img
         src={sender.profilePic}
         alt={sender.fullName || "Member"}
-        className="size-10 rounded-full object-cover"
+        className="size-10 rounded-2xl object-cover"
       />
     ) : (
-      <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+      <div className="brand-gradient-soft flex size-10 items-center justify-center rounded-2xl text-xs font-semibold text-primary">
         {fallbackIcon ? (
           <Users className="size-4" />
         ) : (
@@ -111,7 +113,22 @@ export const ChatContainer = () => {
     activeDeletingMessageId,
   } = useChatStore();
   const { authUser } = useAuthStore();
+  const defaultWallpaper = usePrefsStore((s) => s.defaultWallpaper);
+  const chatWallpapers = usePrefsStore((s) => s.chatWallpapers);
+  const customWallpapers = usePrefsStore((s) => s.customWallpapers);
   const messageEndRef = useRef(null);
+
+  const chatId = selectedChat?._id;
+  const wallpaperStyle = useMemo(() => {
+    const wallpaperId = (chatId && chatWallpapers[chatId]) || defaultWallpaper || "default";
+    if (wallpaperId === "custom") {
+      const url = (chatId && customWallpapers[chatId]) || customWallpapers.global;
+      return url
+        ? { backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" }
+        : {};
+    }
+    return getWallpaperById(wallpaperId).style;
+  }, [chatId, chatWallpapers, customWallpapers, defaultWallpaper]);
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedSeenByMessage, setSelectedSeenByMessage] = useState(null);
   const [selectedMessageMenu, setSelectedMessageMenu] = useState(null);
@@ -331,10 +348,10 @@ export const ChatContainer = () => {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-auto">
+    <div className="flex flex-1 flex-col overflow-auto bg-base-200/30">
       <ChatHeader />
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="flex-1 space-y-3.5 overflow-y-auto p-4 sm:px-6" style={wallpaperStyle}>
         {messages.map((message) => {
           const sender = getSenderDetails(message, authUser);
           const senderId = sender?._id || message.senderId;
@@ -378,7 +395,7 @@ export const ChatContainer = () => {
           return (
             <div
               key={message._id}
-              className={`chat ${isOwnMessage ? "chat-end" : "chat-start"}`}
+              className={`chat animate-fade-up ${isOwnMessage ? "chat-end" : "chat-start"}`}
               ref={messageEndRef}
             >
               <div className="chat-image avatar">
@@ -413,7 +430,7 @@ export const ChatContainer = () => {
                   <>
                     <button
                       type="button"
-                      className="absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full bg-base-100/90 text-base-content/70 shadow-sm transition-all duration-150 hover:bg-base-100 focus-visible:opacity-100 md:opacity-0 md:group-hover/message:opacity-100"
+                      className="glass absolute right-2 top-2 z-10 flex size-7 items-center justify-center rounded-full text-white/80 shadow-sm transition-all duration-150 hover:text-white focus-visible:opacity-100 md:opacity-0 md:group-hover/message:opacity-100"
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedMessageMenu((currentValue) =>
@@ -427,7 +444,7 @@ export const ChatContainer = () => {
 
                     {isMessageMenuOpen && (
                       <div
-                        className={`absolute top-11 z-20 w-52 rounded-2xl border border-base-300 bg-base-100 p-2 shadow-xl ${
+                        className={`glass-strong animate-pop-in absolute top-11 z-20 w-52 rounded-2xl p-2 shadow-soft ${
                           isOwnMessage ? "right-2" : "left-2"
                         }`}
                         onClick={(e) => e.stopPropagation()}
@@ -574,7 +591,7 @@ export const ChatContainer = () => {
       <MessageInput />
 
       {previewImage && (
-        <div className="fixed inset-0 z-50 bg-black/80 p-4">
+        <div className="fixed inset-0 z-50 bg-black/85 p-4 backdrop-blur-md">
           <div className="absolute right-4 top-4 flex items-center gap-2">
             <button
               type="button"
@@ -610,9 +627,9 @@ export const ChatContainer = () => {
       )}
 
       {selectedSeenByMessage && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-3xl border border-base-300 bg-base-100 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-base-300 px-5 py-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+          <div className="glass-strong animate-pop-in w-full max-w-md rounded-3xl shadow-soft">
+            <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
               <div>
                 <h3 className="font-semibold">Seen By</h3>
                 <p className="text-sm text-base-content/60">
@@ -635,7 +652,7 @@ export const ChatContainer = () => {
                 {selectedSeenByMessage.readByEntries.map((entry) => (
                   <div
                     key={entry.userId?._id || entry.userId}
-                    className="flex items-center gap-3 rounded-2xl border border-base-300 p-3"
+                    className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-3"
                   >
                     <img
                       src={entry.userId?.profilePic || "/avatar.png"}

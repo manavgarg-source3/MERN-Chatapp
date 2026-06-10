@@ -11,6 +11,8 @@ import {
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
+const isUserOnline = (onlineUsers = [], userId) => onlineUsers.includes(String(userId));
+
 const readFileAsDataUrl = (file) =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -111,9 +113,9 @@ export const GroupDetailsModal = ({ open, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-base-300 bg-base-100 shadow-2xl">
-        <div className="flex items-start justify-between border-b border-base-300 px-6 py-5">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
+      <div className="glass-strong animate-pop-in max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl shadow-soft">
+        <div className="flex items-start justify-between border-b border-white/8 px-6 py-5">
           <div>
             <h2 className="text-xl font-semibold">Group Details</h2>
             <p className="text-sm text-base-content/60">
@@ -126,14 +128,14 @@ export const GroupDetailsModal = ({ open, onClose }) => {
         </div>
 
         <div className="space-y-6 px-6 py-6">
-          <section className="rounded-3xl border border-base-300 bg-base-200/50 p-5">
+          <section className="rounded-3xl border border-white/8 bg-base-200/50 p-5">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <button
                 type="button"
                 className={`relative mx-auto sm:mx-0 ${selectedChat.isAdmin ? "cursor-pointer" : "cursor-default"}`}
                 onClick={() => selectedChat.isAdmin && fileInputRef.current?.click()}
               >
-                <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border border-base-300 bg-base-100">
+                <div className="flex size-24 items-center justify-center overflow-hidden rounded-full border border-white/8 bg-base-100">
                   {pendingImage ? (
                     <img src={pendingImage} alt={selectedChat.name} className="size-full object-cover" />
                   ) : (
@@ -200,7 +202,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-base-300 p-5">
+          <section className="rounded-3xl border border-white/8 p-5">
             <div className="mb-4 flex items-center gap-2">
               <Users className="size-4 text-primary" />
               <h3 className="font-semibold">Members</h3>
@@ -214,7 +216,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
                 return (
                   <div
                     key={member._id}
-                    className="flex flex-col gap-3 rounded-2xl border border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/8 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-center gap-3">
                       <img
@@ -234,7 +236,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
                               Admin
                             </span>
                           )}
-                          {onlineUsers.includes(member._id) && (
+                          {isUserOnline(onlineUsers, member._id) && (
                             <span className="rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">
                               Online
                             </span>
@@ -266,7 +268,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
           </section>
 
           {selectedChat.isAdmin && (
-            <section className="rounded-3xl border border-base-300 p-5">
+            <section className="rounded-3xl border border-white/8 p-5">
               <div className="mb-4 flex items-center gap-2">
                 <UserPlus className="size-4 text-primary" />
                 <h3 className="font-semibold">Add Members</h3>
@@ -278,7 +280,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
                 </div>
               ) : (
                 <>
-                  <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-base-300 p-2">
+                  <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-white/8 p-2">
                     {availableFriendsToAdd.map((user) => (
                       <label
                         key={user._id}
