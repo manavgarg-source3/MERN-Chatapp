@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import { useAuthStore } from "./useAuthStore";
+import { axiosInstance } from "../lib/axios";
 
 /**
  * 1:1 WebRTC calling.
@@ -14,8 +15,9 @@ import { useAuthStore } from "./useAuthStore";
 
 // ICE servers: STUN finds your public address; TURN relays media when a direct
 // P2P path is impossible (strict/symmetric NAT on corporate/cellular networks).
-// Defaults include free best-effort public servers. For guaranteed reliability,
-// drop your own TURN creds (e.g. free metered.ca, 50GB/mo) into the frontend env:
+// At call time we fetch the real list (with TURN credentials) from the backend
+// `/webrtc/ice` endpoint — configure TURN there (backend env). This local list is
+// only a fallback if that request fails. You can also hard-set frontend env:
 //   VITE_TURN_URLS="turn:your.turn:3478,turns:your.turn:5349"
 //   VITE_TURN_USERNAME="..."  VITE_TURN_CREDENTIAL="..."
 const buildIceServers = () => {
@@ -27,21 +29,28 @@ const buildIceServers = () => {
         "stun:stun2.l.google.com:19302",
       ],
     },
-    // Free best-effort public TURN (Open Relay). Works for many cross-NAT cases.
+    // Static Metered TURN — real working relays (fallback if the backend /webrtc/ice
+    // fetch fails). The backend normally serves freshly-fetched credentials instead.
+    { urls: "stun:stun.relay.metered.ca:80" },
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:global.relay.metered.ca:80",
+      username: "e8a56513b2e5fe0aedfc0349",
+      credential: "G5gbtY2OcAC0r2AD",
     },
     {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:global.relay.metered.ca:80?transport=tcp",
+      username: "e8a56513b2e5fe0aedfc0349",
+      credential: "G5gbtY2OcAC0r2AD",
     },
     {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:global.relay.metered.ca:443",
+      username: "e8a56513b2e5fe0aedfc0349",
+      credential: "G5gbtY2OcAC0r2AD",
+    },
+    {
+      urls: "turns:global.relay.metered.ca:443?transport=tcp",
+      username: "e8a56513b2e5fe0aedfc0349",
+      credential: "G5gbtY2OcAC0r2AD",
     },
   ];
 
@@ -60,13 +69,32 @@ const buildIceServers = () => {
   return servers;
 };
 
-const ICE_SERVERS = buildIceServers();
+// Current ICE servers. Starts with the local fallback list, then gets replaced by
+// the backend's list (which carries real TURN credentials) the first time we call.
+let ICE_SERVERS = buildIceServers();
+let iceFetchedAt = 0; // when we last got servers from the backend (0 = never)
 
-const PC_CONFIG = {
+const getPcConfig = () => ({
   iceServers: ICE_SERVERS,
   iceCandidatePoolSize: 10,
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require",
+});
+
+// Pull the ICE/TURN list from the backend so cross-network (Wi-Fi ↔ mobile data)
+// calls get a working relay. Cached for 5 min; falls back to the built-in list on
+// any error so calling still works if the endpoint is unreachable.
+const ensureIceServers = async () => {
+  if (Date.now() - iceFetchedAt < 5 * 60 * 1000) return;
+  try {
+    const { data } = await axiosInstance.get("/webrtc/ice");
+    if (Array.isArray(data?.iceServers) && data.iceServers.length > 0) {
+      ICE_SERVERS = data.iceServers;
+      iceFetchedAt = Date.now();
+    }
+  } catch (error) {
+    console.warn("Falling back to built-in ICE servers:", error?.message);
+  }
 };
 
 // Mic with browser DSP: echo cancellation + background-noise suppression + AGC.
@@ -211,7 +239,7 @@ export const useCallStore = create((set, get) => ({
 
   /* ---- build the RTCPeerConnection and wire its events ---- */
   _createPeer: () => {
-    const pc = new RTCPeerConnection(PC_CONFIG);
+    const pc = new RTCPeerConnection(getPcConfig());
 
     pc.onicecandidate = (event) => {
       if (!event.candidate) return;
@@ -326,6 +354,10 @@ export const useCallStore = create((set, get) => ({
     }
 
     try {
+      // Refresh TURN creds from the backend so the call can relay across NATs
+      // (e.g. caller on mobile data, callee on Wi-Fi).
+      await ensureIceServers();
+
       const stream = await navigator.mediaDevices.getUserMedia(
         buildMediaConstraints(callType)
       );
@@ -370,6 +402,9 @@ export const useCallStore = create((set, get) => ({
     if (status !== "incoming" || !engine.pendingOffer) return;
 
     try {
+      // Make sure we have working TURN before answering across networks.
+      await ensureIceServers();
+
       const stream = await navigator.mediaDevices.getUserMedia(
         buildMediaConstraints(callType)
       );

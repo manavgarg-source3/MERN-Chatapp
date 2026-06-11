@@ -27,7 +27,7 @@ export const EmojiPicker = ({ onSelect, onClose }) => {
   return (
     <div
       ref={ref}
-      className="glass-strong animate-pop-in absolute bottom-14 left-0 z-50 w-72 rounded-2xl p-2 shadow-soft sm:w-80"
+      className="glass-strong animate-pop-in absolute bottom-14 left-0 z-50 w-[min(20rem,calc(100vw-1.5rem))] rounded-2xl p-2 shadow-soft sm:w-80"
     >
       {/* Pack tabs */}
       <div className="mb-2 flex items-center gap-1 overflow-x-auto border-b border-white/5 pb-2">

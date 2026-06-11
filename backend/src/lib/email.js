@@ -13,6 +13,8 @@ export const getFriendRequestsUrl = () =>
 
 export const getAppHomeUrl = () => `${getClientUrl().replace(/\/$/, "")}/`;
 
+// Gmail SMTP transport — works locally, but Render blocks outbound SMTP so it
+// hangs/fails in production. Kept only as a fallback when RESEND_API_KEY is unset.
 const transporter = nodemailer.createTransport({
   service: process.env.EMAIL_SERVICE,
   auth: {
@@ -21,9 +23,44 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendPasswordResetEmail = async ({ email, fullName, resetUrl }) => {
-  await transporter.sendMail({
+// "From" address. Resend requires either a verified domain sender or its test
+// sender `onboarding@resend.dev` (which can ONLY deliver to your Resend account
+// email until you verify a domain). Override with EMAIL_FROM once a domain is set.
+const FROM_ADDRESS = process.env.EMAIL_FROM || "GargX <onboarding@resend.dev>";
+
+// Send via Resend's HTTPS API (port 443 — not blocked by Render, unlike SMTP).
+const sendViaResend = async ({ to, subject, html }) => {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Resend send failed (${res.status}): ${detail}`);
+  }
+};
+
+// Single entry point used by every email below. Prefers Resend (works in prod);
+// falls back to Gmail SMTP locally when no Resend key is configured.
+const sendEmail = async ({ to, subject, html }) => {
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResend({ to, subject, html });
+  }
+  return transporter.sendMail({
     from: `"GargX" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    html,
+  });
+};
+
+export const sendPasswordResetEmail = async ({ email, fullName, resetUrl }) => {
+  await sendEmail({
     to: email,
     subject: "Reset your GargX password",
     html: `
@@ -68,8 +105,7 @@ export const sendPasswordResetEmail = async ({ email, fullName, resetUrl }) => {
 };
 
 export const sendVerificationOtpEmail = async ({ email, fullName, otp }) => {
-  await transporter.sendMail({
-    from: `"GargX" <${process.env.EMAIL_USER}>`,
+  await sendEmail({
     to: email,
     subject: "Verify your GargX email",
     html: `
@@ -108,8 +144,7 @@ export const sendVerificationOtpEmail = async ({ email, fullName, otp }) => {
 };
 
 export const sendFriendRequestEmail = async ({ toEmail, toName, fromName, requestsUrl }) => {
-  await transporter.sendMail({
-    from: `"GargX" <${process.env.EMAIL_USER}>`,
+  await sendEmail({
     to: toEmail,
     subject: `${fromName} sent you a friend request on GargX`,
     html: `
@@ -160,8 +195,7 @@ export const sendFriendRequestAcceptedEmail = async ({
   acceptedByName,
   chatUrl,
 }) => {
-  await transporter.sendMail({
-    from: `"GargX" <${process.env.EMAIL_USER}>`,
+  await sendEmail({
     to: toEmail,
     subject: `${acceptedByName} accepted your friend request on GargX`,
     html: `

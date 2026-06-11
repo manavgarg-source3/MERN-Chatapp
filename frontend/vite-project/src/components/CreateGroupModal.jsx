@@ -63,8 +63,8 @@ export const CreateGroupModal = ({ open, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
-      <div className="glass-strong animate-pop-in w-full max-w-lg rounded-3xl shadow-soft">
-        <div className="flex items-center gap-3 border-b border-white/8 px-6 py-4">
+      <div className="glass-strong animate-pop-in flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl shadow-soft">
+        <div className="flex items-center gap-3 border-b border-white/8 px-4 py-4 sm:px-6">
           <div className="brand-gradient flex size-11 items-center justify-center rounded-2xl text-white">
             <Users className="size-5" />
           </div>
@@ -76,7 +76,7 @@ export const CreateGroupModal = ({ open, onClose }) => {
           </div>
         </div>
 
-        <form onSubmit={handleCreateGroup} className="px-6 py-5">
+        <form onSubmit={handleCreateGroup} className="overflow-y-auto px-4 py-5 sm:px-6">
           <div className="mb-5 flex justify-center">
             <button
               type="button"

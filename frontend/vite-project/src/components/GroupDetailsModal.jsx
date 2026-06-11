@@ -115,7 +115,7 @@ export const GroupDetailsModal = ({ open, onClose }) => {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
       <div className="glass-strong animate-pop-in max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl shadow-soft">
-        <div className="flex items-start justify-between border-b border-white/8 px-6 py-5">
+        <div className="flex items-start justify-between border-b border-white/8 px-4 py-5 sm:px-6">
           <div>
             <h2 className="text-xl font-semibold">Group Details</h2>
             <p className="text-sm text-base-content/60">
@@ -127,8 +127,8 @@ export const GroupDetailsModal = ({ open, onClose }) => {
           </button>
         </div>
 
-        <div className="space-y-6 px-6 py-6">
-          <section className="rounded-3xl border border-white/8 bg-base-200/50 p-5">
+        <div className="space-y-6 px-4 py-6 sm:px-6">
+          <section className="rounded-3xl border border-white/8 bg-base-200/50 p-4 sm:p-5">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <button
                 type="button"

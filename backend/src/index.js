@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.route.js";
 import friendRoutes from "./routes/friend.route.js";
 import messageRoute from "./routes/message.route.js";
+import webrtcRoutes from "./routes/webrtc.route.js";
 import { connectDB } from "./lib/db.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -50,6 +51,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/friends", friendRoutes);
 app.use("/api/messages", messageRoute);
+app.use("/api/webrtc", webrtcRoutes);
 
 // ✅ Serve frontend ONLY when needed (Render)
 if (shouldServeFrontend) {

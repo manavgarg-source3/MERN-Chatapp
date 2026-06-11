@@ -66,7 +66,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md">
       <div className="glass-strong animate-pop-in w-full max-w-3xl rounded-3xl shadow-soft">
-        <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-white/5 px-4 py-4 sm:px-5">
           <div>
             <h2 className="text-lg font-semibold">Friend Requests</h2>
             <p className="text-sm text-base-content/60">
@@ -78,7 +78,7 @@ export const FriendRequestsModal = ({ open, onClose }) => {
           </button>
         </div>
 
-        <div className="max-h-[75vh] overflow-y-auto px-5 py-4">
+        <div className="max-h-[75vh] overflow-y-auto px-4 py-4 sm:px-5">
           {isLoading && incomingRequests.length === 0 && outgoingRequests.length === 0 && availableUsers.length === 0 ? (
             <div className="flex items-center justify-center py-16">
               <LoaderCircle className="size-8 animate-spin text-primary" />
