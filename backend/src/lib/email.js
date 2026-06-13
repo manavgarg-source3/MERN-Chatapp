@@ -1,5 +1,9 @@
 import nodemailer from "nodemailer";
 
+const GMAIL_HOST = "smtp.gmail.com";
+const GMAIL_PORT = 465;
+const EMAIL_TIMEOUT_MS = 15_000;
+
 const getClientUrl = () => {
   if (process.env.NODE_ENV === "production") {
     return process.env.CLIENT_URL || "https://gargx.onrender.com";
@@ -13,46 +17,52 @@ export const getFriendRequestsUrl = () =>
 
 export const getAppHomeUrl = () => `${getClientUrl().replace(/\/$/, "")}/`;
 
-// Gmail SMTP transport — works locally, but Render blocks outbound SMTP so it
-// hangs/fails in production. Kept only as a fallback when RESEND_API_KEY is unset.
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// "From" address. Resend requires either a verified domain sender or its test
-// sender `onboarding@resend.dev` (which can ONLY deliver to your Resend account
-// email until you verify a domain). Override with EMAIL_FROM once a domain is set.
-const FROM_ADDRESS = process.env.EMAIL_FROM || "GargX <onboarding@resend.dev>";
-
-// Send via Resend's HTTPS API (port 443 — not blocked by Render, unlike SMTP).
-const sendViaResend = async ({ to, subject, html }) => {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Resend send failed (${res.status}): ${detail}`);
+export class EmailConfigurationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "EmailConfigurationError";
+    this.code = "EMAIL_CONFIGURATION_ERROR";
   }
+}
+
+export const getGmailTransportConfig = () => {
+  const user = process.env.EMAIL_USER?.trim();
+  // Google displays app passwords in groups, but SMTP expects no spaces.
+  const pass = process.env.EMAIL_PASS?.replace(/\s/g, "");
+
+  if (!user || !pass) {
+    throw new EmailConfigurationError(
+      "EMAIL_USER and EMAIL_PASS must be configured with a Gmail account and app password."
+    );
+  }
+
+  return {
+    host: GMAIL_HOST,
+    port: GMAIL_PORT,
+    secure: true,
+    auth: { user, pass },
+    connectionTimeout: EMAIL_TIMEOUT_MS,
+    greetingTimeout: EMAIL_TIMEOUT_MS,
+    socketTimeout: EMAIL_TIMEOUT_MS,
+  };
 };
 
-// Single entry point used by every email below. Prefers Resend (works in prod);
-// falls back to Gmail SMTP locally when no Resend key is configured.
-const sendEmail = async ({ to, subject, html }) => {
-  if (process.env.RESEND_API_KEY) {
-    return sendViaResend({ to, subject, html });
+let transporter;
+
+const getTransporter = () => {
+  if (!transporter) {
+    transporter = nodemailer.createTransport(getGmailTransportConfig());
   }
-  return transporter.sendMail({
-    from: `"GargX" <${process.env.EMAIL_USER}>`,
+  return transporter;
+};
+
+export const verifyEmailConnection = async () => getTransporter().verify();
+
+const sendEmail = async ({ to, subject, html }) => {
+  const config = getGmailTransportConfig();
+
+  return getTransporter().sendMail({
+    from: `"GargX" <${config.auth.user}>`,
     to,
     subject,
     html,

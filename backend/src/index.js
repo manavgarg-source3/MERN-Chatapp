@@ -8,6 +8,7 @@ import friendRoutes from "./routes/friend.route.js";
 import messageRoute from "./routes/message.route.js";
 import webrtcRoutes from "./routes/webrtc.route.js";
 import { connectDB } from "./lib/db.js";
+import { isOriginAllowed } from "./lib/runtime.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { app, server } from "./lib/socket.js";
@@ -39,10 +40,15 @@ app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 app.use(cookieParser());
 
-// ✅ CORS (fixed)
 app.use(
   cors({
-    origin: true, // allow all for now (you can restrict later)
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Origin not allowed by CORS"));
+    },
     credentials: true,
   })
 );

@@ -13,7 +13,8 @@ const getClientUrl = () => {
   return process.env.DEV_CLIENT_URL || "http://localhost:5173";
 };
 
-const generateVerificationOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
+const normalizeEmail = (email) => email?.trim().toLowerCase();
+const generateVerificationOtp = () => crypto.randomInt(100000, 1000000).toString();
 const isEmailVerified = (user) => user?.isVerified !== false;
 
 const attachVerificationOtp = (user) => {
@@ -31,10 +32,17 @@ const formatAuthUser = (user) => ({
 });
 
 export const signup = async (req, res) => {
-  const { fullName, email, password } = req.body;
-  try { 
+  const fullName = req.body.fullName?.trim();
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
+
+  try {
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
     }
 
     if (password.length < 6) {
@@ -57,11 +65,20 @@ export const signup = async (req, res) => {
     attachVerificationOtp(user);
     await user.save();
 
-    await sendVerificationOtpEmail({
-      email: user.email,
-      fullName: user.fullName,
-      otp: user.emailVerificationOtp,
-    });
+    try {
+      await sendVerificationOtpEmail({
+        email: user.email,
+        fullName: user.fullName,
+        otp: user.emailVerificationOtp,
+      });
+    } catch (error) {
+      console.error("Unable to send signup verification email:", error.message);
+      return res.status(503).json({
+        message: "Your account was saved, but Gmail could not send the verification code. Please try again.",
+        email: user.email,
+        requiresVerification: true,
+      });
+    }
 
     res.status(201).json({
       message: "Account created. Please verify your email with the OTP sent to your inbox.",
@@ -74,8 +91,14 @@ export const signup = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const { password } = req.body;
+
   try {
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -107,7 +130,8 @@ export const login = async (req, res) => {
 };
 
 export const verifyEmailOtp = async (req, res) => {
-  const { email, otp } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const otp = req.body.otp?.trim();
 
   try {
     if (!email || !otp) {
@@ -145,7 +169,7 @@ export const verifyEmailOtp = async (req, res) => {
 };
 
 export const resendVerificationOtp = async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   try {
     if (!email) {
@@ -165,11 +189,18 @@ export const resendVerificationOtp = async (req, res) => {
     attachVerificationOtp(user);
     await user.save();
 
-    await sendVerificationOtpEmail({
-      email: user.email,
-      fullName: user.fullName,
-      otp: user.emailVerificationOtp,
-    });
+    try {
+      await sendVerificationOtpEmail({
+        email: user.email,
+        fullName: user.fullName,
+        otp: user.emailVerificationOtp,
+      });
+    } catch (error) {
+      console.error("Unable to resend verification email:", error.message);
+      return res.status(503).json({
+        message: "Gmail could not send the verification code. Please try again shortly.",
+      });
+    }
 
     res.status(200).json({ message: "A new OTP has been sent to your email." });
   } catch (error) {
@@ -180,7 +211,16 @@ export const resendVerificationOtp = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.cookie("jwt", "", { maxAge: 0 });
+    const isHTTPS =
+      process.env.COOKIE_SECURE === "true" ||
+      (process.env.NODE_ENV === "production" && process.env.COOKIE_SECURE !== "false");
+
+    res.cookie("jwt", "", {
+      maxAge: 0,
+      httpOnly: true,
+      secure: isHTTPS,
+      sameSite: isHTTPS ? "none" : "lax",
+    });
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.log("Error in logout controller", error.message);
@@ -189,7 +229,7 @@ export const logout = (req, res) => {
 };
 
 export const requestPasswordReset = async (req, res) => {
-  const { email } = req.body;
+  const email = normalizeEmail(req.body.email);
 
   try {
     if (!email) {
