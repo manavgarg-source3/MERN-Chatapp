@@ -41,8 +41,9 @@ test("Gmail transport uses secure SMTP and normalizes an app password", () => {
       const config = getGmailTransportConfig();
 
       assert.equal(config.host, "smtp.gmail.com");
-      assert.equal(config.port, 465);
-      assert.equal(config.secure, true);
+      assert.equal(config.port, 587);
+      assert.equal(config.secure, false);
+      assert.equal(config.requireTLS, true);
       assert.equal(config.tls.servername, "smtp.gmail.com");
       assert.deepEqual(config.auth, {
         user: "sender@gmail.com",

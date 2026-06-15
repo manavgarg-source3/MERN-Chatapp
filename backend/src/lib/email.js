@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import dns from "node:dns/promises";
 
 const GMAIL_HOST = "smtp.gmail.com";
-const GMAIL_PORT = 465;
+const GMAIL_PORT = 587;
 const EMAIL_TIMEOUT_MS = 15_000;
 
 const getClientUrl = () => {
@@ -40,7 +40,8 @@ export const getGmailTransportConfig = ({ host = GMAIL_HOST } = {}) => {
   return {
     host,
     port: GMAIL_PORT,
-    secure: true,
+    secure: false,
+    requireTLS: true,
     auth: { user, pass },
     tls: {
       servername: GMAIL_HOST,
