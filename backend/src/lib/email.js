@@ -1,8 +1,4 @@
-import nodemailer from "nodemailer";
-import dns from "node:dns/promises";
-
-const GMAIL_HOST = "smtp.gmail.com";
-const GMAIL_PORT = 587;
+const BREVO_API_URL = "https://api.brevo.com/v3";
 const EMAIL_TIMEOUT_MS = 15_000;
 
 const getClientUrl = () => {
@@ -26,73 +22,84 @@ export class EmailConfigurationError extends Error {
   }
 }
 
-export const getGmailTransportConfig = ({ host = GMAIL_HOST } = {}) => {
-  const user = process.env.EMAIL_USER?.trim();
-  // Google displays app passwords in groups, but SMTP expects no spaces.
-  const pass = process.env.EMAIL_PASS?.replace(/\s/g, "");
+export const getBrevoConfig = () => {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  const senderName = process.env.SENDER_NAME?.trim() || "GargX";
+  const senderEmail = process.env.SENDER_EMAIL?.trim();
 
-  if (!user || !pass) {
+  if (!apiKey || !senderEmail) {
     throw new EmailConfigurationError(
-      "EMAIL_USER and EMAIL_PASS must be configured with a Gmail account and app password."
+      "BREVO_API_KEY and SENDER_EMAIL must be configured for Brevo transactional email."
     );
   }
 
+  return { apiKey, senderName, senderEmail };
+};
+
+let emailSenderOverride;
+
+const getBrevoError = async (response) => {
+  const body = await response.text().catch(() => "");
+
+  try {
+    const parsed = JSON.parse(body);
+    return parsed.message || parsed.code || body;
+  } catch {
+    return body;
+  }
+};
+
+export const buildBrevoEmailPayload = ({ to, subject, html }) => {
+  const { senderName, senderEmail } = getBrevoConfig();
+
   return {
-    host,
-    port: GMAIL_PORT,
-    secure: false,
-    requireTLS: true,
-    auth: { user, pass },
-    tls: {
-      servername: GMAIL_HOST,
+    sender: {
+      name: senderName,
+      email: senderEmail,
     },
-    connectionTimeout: EMAIL_TIMEOUT_MS,
-    greetingTimeout: EMAIL_TIMEOUT_MS,
-    socketTimeout: EMAIL_TIMEOUT_MS,
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
   };
 };
 
-export const resolveGmailIpv4Address = async () => {
-  const addresses = await dns.resolve4(GMAIL_HOST);
-
-  if (!addresses.length) {
-    throw new Error("Gmail SMTP did not return an IPv4 address.");
-  }
-
-  return addresses[0];
-};
-
-let transporterPromise;
-let emailSenderOverride;
-
-const getTransporter = async () => {
-  if (!transporterPromise) {
-    transporterPromise = resolveGmailIpv4Address()
-      .then((host) => nodemailer.createTransport(getGmailTransportConfig({ host })))
-      .catch((error) => {
-        transporterPromise = undefined;
-        throw error;
-      });
-  }
-  return transporterPromise;
-};
-
-const sendViaGmail = async ({ to, subject, html }) => {
-  const transporter = await getTransporter();
-  const config = transporter.options;
-
-  return transporter.sendMail({
-    from: `"GargX" <${config.auth.user}>`,
-    to,
-    subject,
-    html,
+const sendViaBrevo = async (message) => {
+  const { apiKey } = getBrevoConfig();
+  const response = await fetch(`${BREVO_API_URL}/smtp/email`, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "api-key": apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(buildBrevoEmailPayload(message)),
+    signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
   });
+
+  if (!response.ok) {
+    const detail = await getBrevoError(response);
+    throw new Error(`Brevo send failed (${response.status}): ${detail || "unknown error"}`);
+  }
+
+  return response.json();
 };
 
 export const verifyEmailConnection = async () => {
-  const transporter = await getTransporter();
-  await transporter.verify();
-  return { provider: "gmail" };
+  const { apiKey, senderEmail } = getBrevoConfig();
+  const response = await fetch(`${BREVO_API_URL}/account`, {
+    headers: {
+      accept: "application/json",
+      "api-key": apiKey,
+    },
+    signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const detail = await getBrevoError(response);
+    throw new Error(`Brevo authentication failed (${response.status}): ${detail || "unknown error"}`);
+  }
+
+  return { provider: "brevo", senderEmail };
 };
 
 export const setEmailSenderForTests = (sender) => {
@@ -101,7 +108,7 @@ export const setEmailSenderForTests = (sender) => {
 
 export const sendEmail = async (message) => {
   if (emailSenderOverride) return emailSenderOverride(message);
-  return sendViaGmail(message);
+  return sendViaBrevo(message);
 };
 
 export const sendPasswordResetEmail = async ({ email, fullName, resetUrl }) => {

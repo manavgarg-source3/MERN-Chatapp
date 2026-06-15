@@ -17,10 +17,10 @@ try {
     const recipient =
       process.argv.find((value) => value.startsWith("--to="))?.slice(5) ||
       process.env.EMAIL_TEST_RECIPIENT ||
-      process.env.EMAIL_USER;
+      process.env.SENDER_EMAIL;
 
     if (!recipient) {
-      throw new Error("Set EMAIL_TEST_RECIPIENT, EMAIL_USER, or pass --to=recipient@example.com.");
+      throw new Error("Set EMAIL_TEST_RECIPIENT, SENDER_EMAIL, or pass --to=recipient@example.com.");
     }
 
     await sendVerificationOtpEmail({

@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import net from "node:net";
 import {
+  buildBrevoEmailPayload,
   EmailConfigurationError,
-  getGmailTransportConfig,
+  getBrevoConfig,
   sendFriendRequestAcceptedEmail,
   sendFriendRequestEmail,
   sendPasswordResetEmail,
@@ -12,11 +12,12 @@ import {
 } from "../src/lib/email.js";
 
 const withEmailEnvironment = (values, callback) => {
-  const keys = ["EMAIL_USER", "EMAIL_PASS"];
+  const keys = ["BREVO_API_KEY", "SENDER_NAME", "SENDER_EMAIL"];
   const originals = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   const environment = {
-    EMAIL_USER: values.user,
-    EMAIL_PASS: values.pass,
+    BREVO_API_KEY: values.apiKey,
+    SENDER_NAME: values.senderName,
+    SENDER_EMAIL: values.senderEmail,
   };
 
   for (const [key, value] of Object.entries(environment)) {
@@ -34,39 +35,60 @@ const withEmailEnvironment = (values, callback) => {
   }
 };
 
-test("Gmail transport uses secure SMTP and normalizes an app password", () => {
+test("Brevo config reads API key and sender details", () => {
   withEmailEnvironment(
-    { user: " sender@gmail.com ", pass: "abcd efgh ijkl mnop" },
+    {
+      apiKey: " xkeysib-test ",
+      senderName: " GargX Mail ",
+      senderEmail: " sender@example.com ",
+    },
     () => {
-      const config = getGmailTransportConfig();
+      const config = getBrevoConfig();
 
-      assert.equal(config.host, "smtp.gmail.com");
-      assert.equal(config.port, 587);
-      assert.equal(config.secure, false);
-      assert.equal(config.requireTLS, true);
-      assert.equal(config.tls.servername, "smtp.gmail.com");
-      assert.deepEqual(config.auth, {
-        user: "sender@gmail.com",
-        pass: "abcdefghijklmnop",
+      assert.deepEqual(config, {
+        apiKey: "xkeysib-test",
+        senderName: "GargX Mail",
+        senderEmail: "sender@example.com",
       });
     }
   );
 });
 
-test("Gmail transport rejects missing credentials", () => {
-  withEmailEnvironment({ user: undefined, pass: undefined }, () => {
-    assert.throws(() => getGmailTransportConfig(), EmailConfigurationError);
+test("Brevo config defaults sender name and rejects missing essentials", () => {
+  withEmailEnvironment({ apiKey: "xkeysib-test", senderEmail: "sender@example.com" }, () => {
+    assert.equal(getBrevoConfig().senderName, "GargX");
+  });
+
+  withEmailEnvironment({ apiKey: undefined, senderEmail: "sender@example.com" }, () => {
+    assert.throws(() => getBrevoConfig(), EmailConfigurationError);
+  });
+
+  withEmailEnvironment({ apiKey: "xkeysib-test", senderEmail: undefined }, () => {
+    assert.throws(() => getBrevoConfig(), EmailConfigurationError);
   });
 });
 
-test("Gmail transport supports an IPv4 connection host with Gmail TLS validation", () => {
+test("Brevo email payload follows the transactional email API shape", () => {
   withEmailEnvironment(
-    { user: "sender@gmail.com", pass: "abcdefghijklmnop" },
+    {
+      apiKey: "xkeysib-test",
+      senderName: "GargX",
+      senderEmail: "sender@example.com",
+    },
     () => {
-      const config = getGmailTransportConfig({ host: "142.250.141.108" });
-
-      assert.equal(net.isIPv4(config.host), true);
-      assert.equal(config.tls.servername, "smtp.gmail.com");
+      assert.deepEqual(
+        buildBrevoEmailPayload({
+          to: "recipient@example.com",
+          subject: "Hello",
+          html: "<p>Hi</p>",
+        }),
+        {
+          sender: { name: "GargX", email: "sender@example.com" },
+          to: [{ email: "recipient@example.com" }],
+          subject: "Hello",
+          htmlContent: "<p>Hi</p>",
+        }
+      );
     }
   );
 });
