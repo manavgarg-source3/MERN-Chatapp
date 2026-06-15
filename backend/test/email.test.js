@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import net from "node:net";
 import {
   EmailConfigurationError,
   getGmailTransportConfig,
@@ -42,6 +43,7 @@ test("Gmail transport uses secure SMTP and normalizes an app password", () => {
       assert.equal(config.host, "smtp.gmail.com");
       assert.equal(config.port, 465);
       assert.equal(config.secure, true);
+      assert.equal(config.tls.servername, "smtp.gmail.com");
       assert.deepEqual(config.auth, {
         user: "sender@gmail.com",
         pass: "abcdefghijklmnop",
@@ -54,6 +56,18 @@ test("Gmail transport rejects missing credentials", () => {
   withEmailEnvironment({ user: undefined, pass: undefined }, () => {
     assert.throws(() => getGmailTransportConfig(), EmailConfigurationError);
   });
+});
+
+test("Gmail transport supports an IPv4 connection host with Gmail TLS validation", () => {
+  withEmailEnvironment(
+    { user: "sender@gmail.com", pass: "abcdefghijklmnop" },
+    () => {
+      const config = getGmailTransportConfig({ host: "142.250.141.108" });
+
+      assert.equal(net.isIPv4(config.host), true);
+      assert.equal(config.tls.servername, "smtp.gmail.com");
+    }
+  );
 });
 
 test("every email type creates a complete provider message", async () => {

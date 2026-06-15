@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import dns from "node:dns/promises";
 
 const GMAIL_HOST = "smtp.gmail.com";
 const GMAIL_PORT = 465;
@@ -25,7 +26,7 @@ export class EmailConfigurationError extends Error {
   }
 }
 
-export const getGmailTransportConfig = () => {
+export const getGmailTransportConfig = ({ host = GMAIL_HOST } = {}) => {
   const user = process.env.EMAIL_USER?.trim();
   // Google displays app passwords in groups, but SMTP expects no spaces.
   const pass = process.env.EMAIL_PASS?.replace(/\s/g, "");
@@ -37,30 +38,49 @@ export const getGmailTransportConfig = () => {
   }
 
   return {
-    host: GMAIL_HOST,
+    host,
     port: GMAIL_PORT,
     secure: true,
     auth: { user, pass },
+    tls: {
+      servername: GMAIL_HOST,
+    },
     connectionTimeout: EMAIL_TIMEOUT_MS,
     greetingTimeout: EMAIL_TIMEOUT_MS,
     socketTimeout: EMAIL_TIMEOUT_MS,
   };
 };
 
-let transporter;
+export const resolveGmailIpv4Address = async () => {
+  const addresses = await dns.resolve4(GMAIL_HOST);
+
+  if (!addresses.length) {
+    throw new Error("Gmail SMTP did not return an IPv4 address.");
+  }
+
+  return addresses[0];
+};
+
+let transporterPromise;
 let emailSenderOverride;
 
-const getTransporter = () => {
-  if (!transporter) {
-    transporter = nodemailer.createTransport(getGmailTransportConfig());
+const getTransporter = async () => {
+  if (!transporterPromise) {
+    transporterPromise = resolveGmailIpv4Address()
+      .then((host) => nodemailer.createTransport(getGmailTransportConfig({ host })))
+      .catch((error) => {
+        transporterPromise = undefined;
+        throw error;
+      });
   }
-  return transporter;
+  return transporterPromise;
 };
 
 const sendViaGmail = async ({ to, subject, html }) => {
-  const config = getGmailTransportConfig();
+  const transporter = await getTransporter();
+  const config = transporter.options;
 
-  return getTransporter().sendMail({
+  return transporter.sendMail({
     from: `"GargX" <${config.auth.user}>`,
     to,
     subject,
@@ -69,7 +89,8 @@ const sendViaGmail = async ({ to, subject, html }) => {
 };
 
 export const verifyEmailConnection = async () => {
-  await getTransporter().verify();
+  const transporter = await getTransporter();
+  await transporter.verify();
   return { provider: "gmail" };
 };
 
