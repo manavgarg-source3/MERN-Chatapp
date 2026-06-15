@@ -48,6 +48,7 @@ export const getGmailTransportConfig = () => {
 };
 
 let transporter;
+let emailSenderOverride;
 
 const getTransporter = () => {
   if (!transporter) {
@@ -56,9 +57,7 @@ const getTransporter = () => {
   return transporter;
 };
 
-export const verifyEmailConnection = async () => getTransporter().verify();
-
-const sendEmail = async ({ to, subject, html }) => {
+const sendViaGmail = async ({ to, subject, html }) => {
   const config = getGmailTransportConfig();
 
   return getTransporter().sendMail({
@@ -67,6 +66,20 @@ const sendEmail = async ({ to, subject, html }) => {
     subject,
     html,
   });
+};
+
+export const verifyEmailConnection = async () => {
+  await getTransporter().verify();
+  return { provider: "gmail" };
+};
+
+export const setEmailSenderForTests = (sender) => {
+  emailSenderOverride = sender;
+};
+
+export const sendEmail = async (message) => {
+  if (emailSenderOverride) return emailSenderOverride(message);
+  return sendViaGmail(message);
 };
 
 export const sendPasswordResetEmail = async ({ email, fullName, resetUrl }) => {

@@ -3,26 +3,33 @@ import assert from "node:assert/strict";
 import {
   EmailConfigurationError,
   getGmailTransportConfig,
+  sendFriendRequestAcceptedEmail,
+  sendFriendRequestEmail,
+  sendPasswordResetEmail,
+  sendVerificationOtpEmail,
+  setEmailSenderForTests,
 } from "../src/lib/email.js";
 
 const withEmailEnvironment = (values, callback) => {
-  const originalUser = process.env.EMAIL_USER;
-  const originalPass = process.env.EMAIL_PASS;
+  const keys = ["EMAIL_USER", "EMAIL_PASS"];
+  const originals = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const environment = {
+    EMAIL_USER: values.user,
+    EMAIL_PASS: values.pass,
+  };
 
-  if (values.user === undefined) delete process.env.EMAIL_USER;
-  else process.env.EMAIL_USER = values.user;
-
-  if (values.pass === undefined) delete process.env.EMAIL_PASS;
-  else process.env.EMAIL_PASS = values.pass;
+  for (const [key, value] of Object.entries(environment)) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 
   try {
-    callback();
+    return callback();
   } finally {
-    if (originalUser === undefined) delete process.env.EMAIL_USER;
-    else process.env.EMAIL_USER = originalUser;
-
-    if (originalPass === undefined) delete process.env.EMAIL_PASS;
-    else process.env.EMAIL_PASS = originalPass;
+    for (const [key, value] of Object.entries(originals)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 };
 
@@ -47,4 +54,55 @@ test("Gmail transport rejects missing credentials", () => {
   withEmailEnvironment({ user: undefined, pass: undefined }, () => {
     assert.throws(() => getGmailTransportConfig(), EmailConfigurationError);
   });
+});
+
+test("every email type creates a complete provider message", async () => {
+  const messages = [];
+  setEmailSenderForTests(async (message) => {
+    messages.push(message);
+    return { id: `test-${messages.length}` };
+  });
+
+  try {
+    await sendVerificationOtpEmail({
+      email: "recipient@example.com",
+      fullName: "Recipient",
+      otp: "654321",
+    });
+    await sendPasswordResetEmail({
+      email: "recipient@example.com",
+      fullName: "Recipient",
+      resetUrl: "https://app.example.com/reset-password/token",
+    });
+    await sendFriendRequestEmail({
+      toEmail: "recipient@example.com",
+      toName: "Recipient",
+      fromName: "Sender",
+      requestsUrl: "https://app.example.com/?friendRequests=1",
+    });
+    await sendFriendRequestAcceptedEmail({
+      toEmail: "recipient@example.com",
+      toName: "Recipient",
+      acceptedByName: "Accepter",
+      chatUrl: "https://app.example.com/",
+    });
+  } finally {
+    setEmailSenderForTests(undefined);
+  }
+
+  assert.equal(messages.length, 4);
+  assert.deepEqual(
+    messages.map((message) => message.subject),
+    [
+      "Verify your GargX email",
+      "Reset your GargX password",
+      "Sender sent you a friend request on GargX",
+      "Accepter accepted your friend request on GargX",
+    ]
+  );
+  assert.ok(messages.every((message) => message.to === "recipient@example.com"));
+  assert.match(messages[0].html, /654321/);
+  assert.match(messages[1].html, /reset-password\/token/);
+  assert.match(messages[2].html, /friendRequests=1/);
+  assert.match(messages[3].html, /Start Chatting/);
 });

@@ -74,7 +74,7 @@ export const signup = async (req, res) => {
     } catch (error) {
       console.error("Unable to send signup verification email:", error.message);
       return res.status(503).json({
-        message: "Your account was saved, but Gmail could not send the verification code. Please try again.",
+        message: "Your account was saved, but the email service could not send the verification code. Please try again.",
         email: user.email,
         requiresVerification: true,
       });
@@ -198,7 +198,7 @@ export const resendVerificationOtp = async (req, res) => {
     } catch (error) {
       console.error("Unable to resend verification email:", error.message);
       return res.status(503).json({
-        message: "Gmail could not send the verification code. Please try again shortly.",
+        message: "The email service could not send the verification code. Please try again shortly.",
       });
     }
 
